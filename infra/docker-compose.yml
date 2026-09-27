@@ -1,0 +1,84 @@
+name: ctv-workshop
+
+services:
+  bitcoind:
+    build: ./bitcoind
+    command: ["-rpcuser=${RPC_USER}", "-rpcpassword=${RPC_PASS}"]
+    volumes:
+      - bitcoind-data:/home/bitcoin/.bitcoin
+    ports:
+      - "127.0.0.1:${RPC_DEBUG_PORT:-18543}:18443" # RPC only on localhost, for debugging
+    healthcheck:
+      test: ["CMD", "bitcoin-cli", "-regtest", "-rpcuser=${RPC_USER}", "-rpcpassword=${RPC_PASS}", "getblockcount"]
+      interval: 3s
+      retries: 30
+    restart: unless-stopped
+
+  # Indexer + Esplora REST API. Reused from Nigiri (vulpemventures); it only
+  # reads blocks over RPC, so it indexes CTV transactions like any other.
+  electrs:
+    image: ghcr.io/vulpemventures/electrs:latest
+    entrypoint: ["/build/electrs"]
+    command:
+      - -vv
+      - --network=regtest
+      - --daemon-dir=/data
+      - --db-dir=/data/db
+      - --daemon-rpc-addr=bitcoind:18443
+      - --cookie=${RPC_USER}:${RPC_PASS}
+      - --http-addr=0.0.0.0:30000
+      - --electrum-rpc-addr=0.0.0.0:50000
+      - --jsonrpc-import
+    volumes:
+      - electrs-data:/data
+    depends_on:
+      bitcoind:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # Esplora web explorer, for projecting transactions on screen.
+  explorer:
+    image: ghcr.io/vulpemventures/esplora:latest
+    environment:
+      API_URL: ${PUBLIC_URL:-http://localhost:8080}/esplora
+    ports:
+      - "${EXPLORER_PORT:-5000}:5000"
+    depends_on: [electrs]
+    restart: unless-stopped
+
+  server:
+    build:
+      context: ..
+      dockerfile: infra/server.Dockerfile
+    environment:
+      BITCOIND_RPC_URL: http://bitcoind:18443
+      RPC_USER: ${RPC_USER}
+      RPC_PASS: ${RPC_PASS}
+      ADMIN_TOKEN: ${ADMIN_TOKEN}
+      MINER_INTERVAL_S: ${MINER_INTERVAL_S:-30}
+      MINER_PAUSED: ${MINER_PAUSED:-false}
+      FAUCET_AMOUNT_SAT: ${FAUCET_AMOUNT_SAT:-1000000}
+      FAUCET_COOLDOWN_S: ${FAUCET_COOLDOWN_S:-60}
+    depends_on:
+      bitcoind:
+        condition: service_healthy
+    restart: unless-stopped
+
+  caddy:
+    image: caddy:2
+    environment:
+      SITE_ADDRESS: ${SITE_ADDRESS:-:80}
+    ports:
+      - "${HTTP_PORT:-8080}:80"
+      - "${HTTPS_PORT:-8443}:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ../web/dist:/srv/web:ro
+      - caddy-data:/data
+    depends_on: [server, electrs]
+    restart: unless-stopped
+
+volumes:
+  bitcoind-data:
+  electrs-data:
+  caddy-data:

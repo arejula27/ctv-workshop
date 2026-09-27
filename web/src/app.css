@@ -1,0 +1,19 @@
+:root {
+  --bg: #fafaf9;
+  --fg: #1c1917;
+  --muted: #78716c;
+  --card: #f0efed;
+  --ok: #15803d;
+  font-family: system-ui, sans-serif;
+  color-scheme: light dark;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #1c1917;
+    --fg: #fafaf9;
+    --muted: #a8a29e;
+    --card: #292524;
+    --ok: #4ade80;
+  }
+}
+body { margin: 0; background: var(--bg); color: var(--fg); }

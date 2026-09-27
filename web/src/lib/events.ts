@@ -1,0 +1,38 @@
+// Mirror of workshop-server's `Event` (crates/workshop-server/src/events.rs).
+export type MinerSettings = { paused: boolean; interval_s: number }
+
+export type Status = {
+  network: string
+  height: number
+  miner: MinerSettings
+  next_block_in_ms: number | null
+  faucet_amount_sat: number
+}
+
+export type ServerEvent =
+  | { type: 'hello'; status: Status }
+  | { type: 'block'; height: number; hash: string }
+  | { type: 'faucet'; address: string; amount_sat: number; txid: string }
+  | { type: 'miner'; settings: MinerSettings }
+  | { type: 'jump'; blocks: number; height: number }
+
+/** Connects to /ws and reconnects forever. Returns a function that closes it. */
+export function subscribe(onEvent: (e: ServerEvent) => void, onOpen?: (open: boolean) => void) {
+  let ws: WebSocket | undefined
+  let closed = false
+  const connect = () => {
+    const proto = location.protocol === 'https:' ? 'wss' : 'ws'
+    ws = new WebSocket(`${proto}://${location.host}/ws`)
+    ws.onopen = () => onOpen?.(true)
+    ws.onmessage = (m) => onEvent(JSON.parse(m.data))
+    ws.onclose = () => {
+      onOpen?.(false)
+      if (!closed) setTimeout(connect, 1000)
+    }
+  }
+  connect()
+  return () => {
+    closed = true
+    ws?.close()
+  }
+}

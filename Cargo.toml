@@ -1,0 +1,19 @@
+[workspace]
+resolver = "3"
+members = ["crates/ctv-core", "crates/ctv-wasm", "crates/workshop-server"]
+
+[workspace.package]
+edition = "2024"
+license = "MIT"
+
+[workspace.dependencies]
+bitcoin = "0.32"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[profile.release]
+lto = true
+codegen-units = 1
+
+[profile.release.package.ctv-wasm]
+opt-level = "z"

@@ -1,0 +1,24 @@
+{
+	admin off
+}
+
+# SITE_ADDRESS=":80" on a laptop/LAN; set it to a domain on a VPS for automatic HTTPS.
+{$SITE_ADDRESS::80} {
+	encode zstd gzip
+
+	handle /api/* {
+		reverse_proxy server:3000
+	}
+	handle /ws {
+		reverse_proxy server:3000
+	}
+	# Esplora REST API (electrs), same origin as the webapp: no CORS needed.
+	handle_path /esplora/* {
+		reverse_proxy electrs:30000
+	}
+	handle {
+		root * /srv/web
+		try_files {path} /index.html
+		file_server
+	}
+}

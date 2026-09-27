@@ -1,0 +1,21 @@
+[package]
+name = "workshop-server"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+bitcoin.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+anyhow = "1.0.104"
+axum = { version = "0.8.9", features = ["ws"] }
+reqwest = { version = "0.13.5", default-features = false, features = ["json"] }
+thiserror = "2.0.21"
+tokio = { version = "1.53.1", features = ["rt-multi-thread", "macros", "time", "sync", "signal"] }
+tower-http = { version = "0.7.1", features = ["trace"] }
+tracing = "0.1.44"
+tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
+
+[dev-dependencies]
+tower = { version = "0.5.3", features = ["util"] }
