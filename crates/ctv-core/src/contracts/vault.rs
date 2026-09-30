@@ -59,9 +59,9 @@ impl Vault {
         }
         let cold_spk = ScriptBuf::new_p2tr(&SECP, cold, None);
         let to_cold = |value: Amount| Template {
-            label: "A la clave fría".into(),
+            label: "A la caja fuerte".into(),
             outputs: vec![Output::Pay {
-                label: "Clave fría".into(),
+                label: "Caja fuerte".into(),
                 script_pubkey: cold_spk.clone(),
                 value,
             }],
@@ -72,7 +72,7 @@ impl Vault {
             label: "Retiro en curso".into(),
             leaves: vec![
                 Leaf::Key {
-                    label: format!("Clave hot, tras {delay} bloques"),
+                    label: format!("Llave caliente, tras {delay} bloques"),
                     csv: Some(delay),
                     signer: hot,
                 },
@@ -97,7 +97,7 @@ impl Vault {
                     },
                 },
                 Leaf::Ctv {
-                    label: "Mandar a la clave fría".into(),
+                    label: "Mandar a la caja fuerte".into(),
                     csv: None,
                     signer: None,
                     next: to_cold(amount - fee),

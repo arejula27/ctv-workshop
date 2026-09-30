@@ -131,6 +131,7 @@ dependencies = [
  "hex-conservative 0.2.3",
  "hex_lit",
  "secp256k1",
+ "serde",
 ]
 
 [[package]]
@@ -166,6 +167,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9cb95693f371d089a4b5b6fc41c6f3ea6e01ee8c15388335dfac8ea685173b51"
 dependencies = [
  "bitcoin-consensus-encoding",
+ "serde",
 ]
 
 [[package]]
@@ -176,6 +178,7 @@ checksum = "bca4c7abb40c8817d77403c880988cfd484f23ab2365726afb2f798363e2c4a2"
 dependencies = [
  "bitcoin-io",
  "hex-conservative 0.2.3",
+ "serde",
 ]
 
 [[package]]
@@ -294,7 +297,11 @@ dependencies = [
 name = "ctv-wasm"
 version = "0.1.0"
 dependencies = [
+ "bitcoin",
  "ctv-core",
+ "serde",
+ "serde-wasm-bindgen",
+ "serde_json",
  "wasm-bindgen",
 ]
 
@@ -1017,6 +1024,7 @@ checksum = "9465315bc9d4566e1724f0fffcbcc446268cb522e60f9a27bcded6b19c108113"
 dependencies = [
  "bitcoin_hashes",
  "secp256k1-sys",
+ "serde",
 ]
 
 [[package]]
@@ -1036,6 +1044,17 @@ checksum = "4148590afebada386688f18773da617792bf2ef03ffc1e4cbd2b1d45b023e0ba"
 dependencies = [
  "serde_core",
  "serde_derive",
+]
+
+[[package]]
+name = "serde-wasm-bindgen"
+version = "0.6.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8302e169f0eddcc139c70f139d19d6467353af16f9fce27e8c30158036a1e16b"
+dependencies = [
+ "js-sys",
+ "serde",
+ "wasm-bindgen",
 ]
 
 [[package]]

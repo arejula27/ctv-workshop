@@ -249,7 +249,8 @@ Atribución en `vendor-notes/` y en la cabecera de cada archivo copiado.
 | F1 | ✅ Compose levantado (bitcoind, electrs, explorer, server, Caddy). `smoke.sh` completo pasa, esplora incluido; web y WS funcionan a través de Caddy. Commit `1f257a1` |
 | F2 | ✅ Pool de stutxo contra Inquisition v29.4: salidas CTV confirmadas (ver `vendor-notes/`) |
 | F3 | ✅ `ctv-core`: hash CTV, taproot, motor de árbol, vault. Tests unitarios + integración contra el stack (4 caminos del vault) |
-| F4 | ⏭ Siguiente |
+| F4 | ✅ WASM + web del vault. Partida completa (dueña + ladrona) verificada con dos navegadores headless |
+| F5 | ⏭ Siguiente |
 
 ### F3: resultado
 - `ctv.rs`: `template_hash` BIP-119 completo; pasa **todos** los vectores oficiales.
@@ -270,13 +271,30 @@ Atribución en `vendor-notes/` y en la cabecera de cada archivo copiado.
 - Tras reiniciar bitcoind la wallet del faucet no se recargaba. Arreglo: `load_on_startup` + recarga y reintento en el faucet. Verificado.
 - Tras reiniciar Docker Desktop el port-forwarding puede quedarse colgado → `up -d --force-recreate` (en README y runbook).
 
-### F4: siguiente
-1. Instalar `wasm-pack` (o `wasm-bindgen-cli`) e integrar el build de `ctv-wasm` en Vite.
-2. `ctv-wasm`: `wallet_new/restore` (clave P2TR en localStorage), `vault_create`, `vault_start/panic/to_cold/withdraw_hot`, `vault_view`.
-   Probar primero una wallet mínima propia (una clave P2TR + UTXOs de esplora); `bdk_wallet` solo si hace falta más.
-3. Web: onboarding, `/wallet` (saldo vía esplora, faucet), `/vault` con narración y `TreeView` (cytoscape.js) coloreando cada tx según esplora (`/tx/:txid/status`, `/tx/:txid/outspend/:vout`).
-4. Criterio: dos navegadores, A "roba" la clave hot de B, B pulsa el pánico a tiempo.
+### F4: resultado
+- `ctv-core/src/wallet.rs`: wallet mínima propia (no `bdk`): semilla de 32 bytes → claves `main` / `hot` / `cold`
+  (hash etiquetado), selección de monedas, firma P2TR por key-path. Probada en regtest.
+- `ctv-wasm`: API JSON (`wallet_info`, `wallet_send`, `hot_secret`, `vault_*`). La semilla la genera el navegador
+  (`crypto.getRandomValues`), sin RNG en wasm. Con `secp-lowmemory`: **412 KB (183 KB gzip)** en vez de 1,5 MB.
+- Web (Svelte): onboarding, `/wallet`, `/vault`. Lenguaje visual:
+  🔥 **cartera caliente** a la izquierda (naranja) · 🧊 **caja fuerte** a la derecha (azul) · 🦹 **ladrona** en gris abajo.
+  Cada vault es una tarjeta partida igual: acciones del lado caliente a la izquierda y del lado seguro a la derecha,
+  narración y temporizador en el centro. `TreeView` genérico (colorea hojas y salidas, marca el camino tomado).
+- `treeStatus.ts` genérico: por cada contrato financiado mira confirmación y `outspend`; el txid que lo gastó
+  identifica la hoja (los txid CTV se conocen de antemano) → sirve para los cuatro contratos.
+- Robo: la víctima genera un código `ctvkit:` (parámetros del vault + outpoint + clave caliente); la ladrona lo pega.
+- Tests: `tests/regtest_vault.rs` añade el flujo completo con la wallet; `infra/scripts/test-ui.sh` juega la partida con
+  dos navegadores (Playwright en Docker, sin librerías en el host) y deja capturas en `web/e2e/shots/`.
+
+### F5: siguiente
+1. `/admin` (token): reloj, pausa, salto, participantes.
+2. `/screen` para el proyector: altura, cuenta atrás, feed de eventos ("Ana ha pulsado el pánico").
+3. **Registro de vaults en el servidor** (WS): la app publica cada vault (nombre, parámetros, outpoint). Así la ladrona
+   solo necesita pegar la **clave caliente** de otra persona (la app busca el vault por `hot_pubkey`) y `/screen` puede
+   mostrar los vaults de la sala. Sustituye al código `ctvkit:`.
+4. Eventos del cliente al servidor: vault creado, retiro iniciado, pánico, robo.
 
 ### Notas de entorno
 - En este Docker hay otros stacks regtest (btcpay, arkd, mempool…) usando 18443, 3000, 50001… → nuestro RPC de depuración está en 18543.
+- Tests: `infra/scripts/test-regtest.sh` (contratos) y `infra/scripts/test-ui.sh` (partida con dos navegadores).
 - Levantar: `docker compose -f infra/docker-compose.yml --env-file infra/.env up -d`; comprobar: `set -a; . infra/.env; set +a; infra/scripts/smoke.sh`.

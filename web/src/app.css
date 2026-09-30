@@ -3,17 +3,64 @@
   --fg: #1c1917;
   --muted: #78716c;
   --card: #f0efed;
+  --line: #d6d3d1;
   --ok: #15803d;
+  --danger: #b91c1c;
+  /* the two wallets of the vault story */
+  --hot: #ea580c;
+  --hot-bg: #ffedd5;
+  --cold: #2563eb;
+  --cold-bg: #dbeafe;
+  /* the thief */
+  --thief: #6b7280;
+  --thief-bg: #f3f4f6;
   font-family: system-ui, sans-serif;
-  color-scheme: light dark;
+  line-height: 1.4;
+  color-scheme: light;
 }
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme='light']) {
     --bg: #1c1917;
     --fg: #fafaf9;
     --muted: #a8a29e;
     --card: #292524;
+    --line: #44403c;
     --ok: #4ade80;
+    --danger: #f87171;
+    --hot: #fb923c;
+    --hot-bg: #431407;
+    --cold: #60a5fa;
+    --cold-bg: #172554;
+    --thief: #9ca3af;
+    --thief-bg: #262626;
+    color-scheme: dark;
   }
 }
+* { box-sizing: border-box; }
 body { margin: 0; background: var(--bg); color: var(--fg); }
+button {
+  font: inherit;
+  border: 0;
+  border-radius: 10px;
+  padding: 0.65rem 1rem;
+  background: var(--fg);
+  color: var(--bg);
+  cursor: pointer;
+  font-weight: 600;
+}
+button:disabled { opacity: 0.4; cursor: not-allowed; }
+button.secondary { background: var(--card); color: var(--fg); }
+button.hot { background: var(--hot); color: #fff; }
+button.cold { background: var(--cold); color: #fff; }
+input, textarea {
+  font: inherit;
+  padding: 0.6rem 0.75rem;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: var(--bg);
+  color: var(--fg);
+  width: 100%;
+}
+code { font-size: 0.85em; word-break: break-all; }
+.muted { color: var(--muted); }
+.error { color: var(--danger); }

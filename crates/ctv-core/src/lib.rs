@@ -6,6 +6,7 @@ pub mod contracts;
 pub mod ctv;
 pub mod taproot;
 pub mod tree;
+pub mod wallet;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {

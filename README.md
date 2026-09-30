@@ -6,13 +6,13 @@ de Bitcoin Inquisition controlada por el presentador. Plan completo en [PLAN.md]
 ## Requisitos
 
 - Rust (se instala solo el toolchain de `rust-toolchain.toml` con `rustup`)
-- Node ≥ 22
+- Node ≥ 22, `wasm-pack`, `clang` (para compilar secp256k1 a wasm32)
 - Docker con Compose (en WSL: activar la integración WSL de Docker Desktop)
 
 ## Levantar el stack
 
 ```bash
-cd web && npm install && npm run build && cd ..   # Caddy sirve web/dist
+cd web && npm install && npm run build && cd ..   # compila el wasm (wasm-pack) y la web; Caddy sirve web/dist
 cp infra/.env.example infra/.env                   # cambia RPC_PASS y ADMIN_TOKEN
 docker compose -f infra/docker-compose.yml --env-file infra/.env up -d --build
 ADMIN_TOKEN=... infra/scripts/smoke.sh             # comprobación end-to-end
@@ -27,7 +27,8 @@ ADMIN_TOKEN=... infra/scripts/smoke.sh             # comprobación end-to-end
 
 Reiniciar la cadena desde cero: `infra/scripts/reset.sh`.
 
-Tests de integración de los contratos contra el stack: `infra/scripts/test-regtest.sh`.
+Tests contra el stack: `infra/scripts/test-regtest.sh` (contratos) e `infra/scripts/test-ui.sh`
+(partida del vault con dos navegadores headless; capturas en `web/e2e/shots/`).
 
 **Si Docker Desktop se reinicia** y los puertos publicados dan "connection reset" (los contenedores
 siguen vivos pero el port-forwarding queda colgado):

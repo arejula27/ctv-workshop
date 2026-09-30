@@ -5,8 +5,15 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
-ctv-core = { version = "0.1.0", path = "../ctv-core" }
+bitcoin = { workspace = true, features = ["secp-lowmemory"] }
+ctv-core = { path = "../ctv-core" }
+serde.workspace = true
+serde-wasm-bindgen = "0.6.5"
+serde_json.workspace = true
 wasm-bindgen = "0.2.129"
 
 [lib]
 crate-type = ["cdylib", "rlib"]
+
+[package.metadata.wasm-pack.profile.release]
+wasm-opt = ["-Oz"]

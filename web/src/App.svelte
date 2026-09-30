@@ -1,83 +1,104 @@
 <script lang="ts">
   import { onMount } from 'svelte'
-  import { subscribe, type MinerSettings } from './lib/events'
+  import { ready } from './lib/core'
+  import { chain, initWallet, me, refreshBalances, startChain } from './lib/store.svelte'
+  import { navigate, route } from './lib/router.svelte'
+  import Onboarding from './routes/Onboarding.svelte'
+  import WalletPage from './routes/Wallet.svelte'
+  import VaultPage from './routes/Vault.svelte'
 
-  let connected = $state(false)
-  let height = $state<number | null>(null)
-  let miner = $state<MinerSettings | null>(null)
-  let nextBlockAt = $state<number | null>(null)
+  let loaded = $state(false)
+  let loadError = $state('')
   let now = $state(Date.now())
-  let log = $state<string[]>([])
-
-  const push = (line: string) => (log = [line, ...log].slice(0, 8))
-  const resetCountdown = () =>
-    (nextBlockAt = miner && !miner.paused ? Date.now() + miner.interval_s * 1000 : null)
 
   onMount(() => {
-    const tick = setInterval(() => (now = Date.now()), 250)
-    const close = subscribe((e) => {
-      switch (e.type) {
-        case 'hello':
-          height = e.status.height
-          miner = e.status.miner
-          nextBlockAt = e.status.next_block_in_ms == null ? null : Date.now() + e.status.next_block_in_ms
-          break
-        case 'block':
-          height = e.height
-          resetCountdown()
-          push(`Bloque ${e.height}`)
-          break
-        case 'jump':
-          push(`⏩ Salto de ${e.blocks} bloques`)
-          break
-        case 'miner':
-          miner = e.settings
-          resetCountdown()
-          push(e.settings.paused ? 'Reloj en pausa' : `Un bloque cada ${e.settings.interval_s}s`)
-          break
-        case 'faucet':
-          push(`Faucet: ${e.amount_sat.toLocaleString()} sats`)
-          break
-      }
-    }, (open) => (connected = open))
+    startChain()
+    ready.then(() => (loaded = true)).catch((e) => (loadError = String(e)))
+    const t = setInterval(() => (now = Date.now()), 500)
+    // The indexer lags a moment behind each block/broadcast, so also poll.
+    const poll = setInterval(() => me.wallet && refreshBalances().catch(() => {}), 5000)
     return () => {
-      clearInterval(tick)
-      close()
+      clearInterval(t)
+      clearInterval(poll)
     }
   })
 
-  let countdown = $derived(nextBlockAt == null ? null : Math.max(0, Math.ceil((nextBlockAt - now) / 1000)))
+  // Wallet keys come from wasm, so derive them once it's loaded.
+  $effect(() => {
+    if (loaded && me.id) initWallet()
+  })
+
+  // Balances follow the chain.
+  $effect(() => {
+    void chain.tick
+    if (me.wallet) refreshBalances().catch(() => {})
+  })
+
+  let countdown = $derived(
+    chain.nextBlockAt == null ? null : Math.max(0, Math.ceil((chain.nextBlockAt - now) / 1000)),
+  )
+
+  const links = [
+    { path: '/wallet', label: 'Cartera' },
+    { path: '/vault', label: 'Vault' },
+  ]
 </script>
 
-<main>
-  <h1>CTV Workshop</h1>
-  <p class="conn" class:ok={connected}>{connected ? 'conectado' : 'conectando…'}</p>
+<header>
+  <a class="brand" href="/wallet" onclick={(e) => { e.preventDefault(); navigate('/wallet') }}>CTV Workshop</a>
+  <div class="clock" class:off={!chain.connected} title="Altura de la cadena">
+    ⛓ {chain.height || '—'}
+    <span class="muted">
+      {#if !chain.connected}desconectado{:else if chain.miner?.paused}⏸ pausa{:else if countdown != null}· {countdown}s{/if}
+    </span>
+  </div>
+</header>
 
-  <section class="clock">
-    <div>
-      <span class="label">Bloque</span>
-      <span class="value">{height ?? '—'}</span>
-    </div>
-    <div>
-      <span class="label">Siguiente bloque</span>
-      <span class="value">{miner?.paused ? 'pausa' : countdown == null ? '—' : `${countdown}s`}</span>
-    </div>
-  </section>
-
-  <ul>
-    {#each log as line}
-      <li>{line}</li>
+{#if loadError}
+  <main><p class="error">No se pudo cargar la app: {loadError}</p></main>
+{:else if !loaded}
+  <main><p class="muted">Cargando…</p></main>
+{:else if !me.id}
+  <main><Onboarding /></main>
+{:else}
+  <nav>
+    {#each links as l}
+      <a href={l.path} class:active={route.path === l.path || (route.path === '/' && l.path === '/wallet')}
+        onclick={(e) => { e.preventDefault(); navigate(l.path) }}>{l.label}</a>
     {/each}
-  </ul>
-</main>
+  </nav>
+  <main>
+    {#if route.path === '/vault'}
+      <VaultPage />
+    {:else}
+      <WalletPage />
+    {/if}
+  </main>
+{/if}
 
 <style>
-  main { max-width: 32rem; margin: 0 auto; padding: 2rem 1rem; }
-  .conn { color: var(--muted); font-size: 0.9rem; }
-  .conn.ok { color: var(--ok); }
-  .clock { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin: 1.5rem 0; }
-  .clock div { background: var(--card); border-radius: 12px; padding: 1rem; }
-  .label { display: block; font-size: 0.8rem; color: var(--muted); }
-  .value { font-size: 2.5rem; font-variant-numeric: tabular-nums; font-weight: 600; }
-  ul { list-style: none; padding: 0; color: var(--muted); }
+  header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid var(--line);
+    position: sticky;
+    top: 0;
+    background: var(--bg);
+    z-index: 1;
+  }
+  .brand { font-weight: 700; color: var(--fg); text-decoration: none; }
+  .clock { font-variant-numeric: tabular-nums; font-weight: 600; }
+  .clock.off { color: var(--danger); }
+  nav { display: flex; gap: 0.25rem; padding: 0.5rem 1rem 0; max-width: 44rem; margin: 0 auto; }
+  nav a {
+    padding: 0.4rem 0.9rem;
+    border-radius: 999px;
+    color: var(--muted);
+    text-decoration: none;
+    font-weight: 600;
+  }
+  nav a.active { background: var(--card); color: var(--fg); }
+  main { max-width: 44rem; margin: 0 auto; padding: 1rem; }
 </style>
