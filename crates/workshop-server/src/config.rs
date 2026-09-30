@@ -18,6 +18,8 @@ pub struct Config {
     /// Blocks mined at startup so the faucet has mature coinbases.
     pub seed_blocks: u64,
     pub max_jump: u64,
+    /// Where the room registry is saved; in memory only when unset.
+    pub registry_path: Option<std::path::PathBuf>,
 }
 
 pub const MIN_MINER_INTERVAL: Duration = Duration::from_secs(2);
@@ -45,6 +47,7 @@ impl Config {
             miner_paused: parse("MINER_PAUSED", false)?,
             seed_blocks: parse("SEED_BLOCKS", 200)?,
             max_jump: parse("MAX_JUMP", 1000)?,
+            registry_path: var("REGISTRY_PATH").map(Into::into),
         })
     }
 }

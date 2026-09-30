@@ -9,12 +9,26 @@ export type Status = {
   faucet_amount_sat: number
 }
 
-export type ServerEvent =
-  | { type: 'hello'; status: Status }
-  | { type: 'block'; height: number; hash: string }
+export type FeedEvent =
   | { type: 'faucet'; address: string; amount_sat: number; txid: string }
   | { type: 'miner'; settings: MinerSettings }
   | { type: 'jump'; blocks: number; height: number }
+  | { type: 'participant_joined'; name: string }
+  | { type: 'vault_registered'; owner: string; amount_sat: number; delay: number; outpoint: string }
+  | {
+      type: 'activity'
+      who: string
+      kind: import('./api').ActivityKind
+      owner: string
+      amount_sat: number
+      outpoint: string
+      txid: string
+    }
+
+export type ServerEvent =
+  | { type: 'hello'; status: Status; recent: FeedEvent[] }
+  | { type: 'block'; height: number; hash: string }
+  | FeedEvent
 
 /** Connects to /ws and reconnects forever. Returns a function that closes it. */
 export function subscribe(onEvent: (e: ServerEvent) => void, onOpen?: (open: boolean) => void) {

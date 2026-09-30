@@ -1772,6 +1772,7 @@ dependencies = [
  "anyhow",
  "axum",
  "bitcoin",
+ "ctv-core",
  "reqwest",
  "serde",
  "serde_json",

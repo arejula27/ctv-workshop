@@ -5,6 +5,8 @@ mod api;
 mod chain;
 mod config;
 mod events;
+mod registry;
+mod room;
 mod rpc;
 
 use std::sync::Arc;
@@ -36,8 +38,11 @@ async fn main() -> Result<()> {
     tokio::spawn(chain.clone().run_miner());
     tokio::spawn(chain.clone().run_watcher());
 
+    let registry = registry::Registry::load(config.registry_path.clone())?;
     let listen = config.listen;
-    let app = api::router(Arc::new(AppState::new(config, chain))).layer(TraceLayer::new_for_http());
+    let state = Arc::new(AppState::new(config, chain, registry));
+    tokio::spawn(events::record_feed(state.clone()));
+    let app = api::router(state).layer(TraceLayer::new_for_http());
     let listener = tokio::net::TcpListener::bind(listen).await?;
     info!(%listen, "workshop-server listening");
     axum::serve(listener, app)

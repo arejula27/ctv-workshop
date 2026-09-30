@@ -6,6 +6,8 @@
   import Onboarding from './routes/Onboarding.svelte'
   import WalletPage from './routes/Wallet.svelte'
   import VaultPage from './routes/Vault.svelte'
+  import Screen from './routes/Screen.svelte'
+  import Admin from './routes/Admin.svelte'
 
   let loaded = $state(false)
   let loadError = $state('')
@@ -44,6 +46,7 @@
   ]
 </script>
 
+{#if route.path !== '/screen'}
 <header>
   <a class="brand" href="/wallet" onclick={(e) => { e.preventDefault(); navigate('/wallet') }}>CTV Workshop</a>
   <div class="clock" class:off={!chain.connected} title="Altura de la cadena">
@@ -53,11 +56,16 @@
     </span>
   </div>
 </header>
+{/if}
 
 {#if loadError}
   <main><p class="error">No se pudo cargar la app: {loadError}</p></main>
 {:else if !loaded}
   <main><p class="muted">Cargando…</p></main>
+{:else if route.path === '/screen'}
+  <Screen />
+{:else if route.path === '/admin'}
+  <main><Admin /></main>
 {:else if !me.id}
   <main><Onboarding /></main>
 {:else}

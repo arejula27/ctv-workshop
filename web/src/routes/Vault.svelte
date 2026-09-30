@@ -1,7 +1,7 @@
 <script lang="ts">
   import { secretPubkey, vault as core, walletSend, type VaultParams } from '../lib/core'
   import * as esplora from '../lib/esplora'
-  import { faucet } from '../lib/api'
+  import { faucet, listVaults, registerVault } from '../lib/api'
   import {
     addVault,
     balances,
@@ -43,7 +43,10 @@
       const tx = walletSend(me.id.seed, utxos, core.address(params), amount)
       await esplora.broadcast(tx.hex)
       // wallet_send always puts the payment in output 0
-      addVault({ id: tx.txid, role: 'owner', params, outpoint: `${tx.txid}:0`, createdAt: Date.now() })
+      const outpoint = `${tx.txid}:0`
+      addVault({ id: tx.txid, role: 'owner', params, outpoint, createdAt: Date.now() })
+      // Announce it so thieves (and /screen) can find it by its hot key.
+      registerVault(me.id.name, params, outpoint).catch((e) => (error = `No se pudo anunciar el vault: ${e.message}`))
       refreshBalances().catch(() => {})
     } catch (e) {
       error = (e as Error).message
@@ -62,28 +65,33 @@
     }
   }
 
-  function importKit(e: SubmitEvent) {
+  async function importKit(e: SubmitEvent) {
     e.preventDefault()
     kitError = ''
+    const secret = kitText.trim().toLowerCase()
+    if (!/^[0-9a-f]{64}$/.test(secret)) {
+      kitError = 'Una llave son 64 caracteres (0-9, a-f).'
+      return
+    }
     try {
-      const raw = kitText.trim().replace(/^ctvkit:/, '')
-      const kit = JSON.parse(atob(raw))
-      if (secretPubkey(kit.hot_secret) !== kit.params.hot_pubkey)
-        throw new Error('La llave no corresponde a ese vault.')
-      addVault({
-        id: `thief:${kit.outpoint}`,
-        role: 'thief',
-        params: kit.params,
-        outpoint: kit.outpoint,
-        owner: kit.owner,
-        hotSecret: kit.hot_secret,
-        createdAt: Date.now(),
-      })
+      const pubkey = secretPubkey(secret)
+      const targets = (await listVaults()).filter((v) => v.params.hot_pubkey === pubkey)
+      if (!targets.length) throw new Error('Esa llave no abre ningún vault de la sala.')
+      if (targets.every((v) => v.params.hot_pubkey === me.wallet?.hot_pubkey))
+        throw new Error('Esa es tu propia llave 🙂')
+      for (const t of targets)
+        addVault({
+          id: `thief:${t.outpoint}`,
+          role: 'thief',
+          params: t.params,
+          outpoint: t.outpoint,
+          owner: t.owner,
+          hotSecret: secret,
+          createdAt: Date.now(),
+        })
       kitText = ''
     } catch (err) {
-      kitError = err instanceof SyntaxError || String(err).includes('atob')
-        ? 'Ese código no es válido.'
-        : (err as Error).message
+      kitError = (err as Error).message
     }
   }
 </script>
@@ -138,7 +146,7 @@
     Lo robado llegará a tu cartera caliente.
   </p>
   <form onsubmit={importKit}>
-    <textarea bind:value={kitText} rows="2" placeholder="ctvkit:…"></textarea>
+    <input bind:value={kitText} placeholder="La llave caliente robada (64 caracteres)" autocomplete="off" spellcheck="false" />
     <button type="submit" class="thief-btn" disabled={!kitText.trim()}>Usar la llave robada</button>
   </form>
   {#if kitError}<p class="error">{kitError}</p>{/if}

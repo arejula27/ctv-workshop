@@ -1,5 +1,6 @@
 // App state shared by every page. Persisted bits live in localStorage (test coins only).
-import { subscribe, type MinerSettings } from './events'
+import { subscribe, type FeedEvent, type MinerSettings } from './events'
+import { joinRoom, registerVault } from './api'
 import { walletInfo, type VaultParams, type WalletInfo } from './core'
 import * as esplora from './esplora'
 
@@ -35,9 +36,21 @@ export function setIdentity(id: Identity | null) {
   save('ctv.identity', id)
 }
 
-/** Call after the wasm module is ready. */
+/** Call after the wasm module is ready. Also (re)announces us and our vaults
+ *  to the room, which is idempotent and survives a server reset. */
 export function initWallet() {
-  if (me.id && !me.wallet) me.wallet = walletInfo(me.id.seed)
+  if (!me.id || me.wallet) return
+  me.wallet = walletInfo(me.id.seed)
+  const { name } = me.id
+  joinRoom(name, me.wallet.main_address)
+    .then(() =>
+      Promise.allSettled(
+        vaults.list
+          .filter((v) => v.role === 'owner')
+          .map((v) => registerVault(name, v.params, v.outpoint)),
+      ),
+    )
+    .catch(() => {})
 }
 
 // ---------- chain clock (workshop-server /ws) ----------
@@ -49,7 +62,13 @@ export const chain = $state({
   nextBlockAt: null as number | null,
   /** Bumped on every block so pages can refetch. */
   tick: 0,
+  /** Newest first. */
+  feed: [] as FeedEvent[],
+  /** Bumped when someone registers a vault. */
+  vaultsTick: 0,
 })
+
+const FEED_LEN = 30
 
 let started = false
 export function startChain() {
@@ -66,6 +85,7 @@ export function startChain() {
           chain.miner = e.status.miner
           chain.nextBlockAt =
             e.status.next_block_in_ms == null ? null : Date.now() + e.status.next_block_in_ms
+          chain.feed = [...e.recent].reverse()
           chain.tick++
           break
         case 'block':
@@ -77,6 +97,10 @@ export function startChain() {
           chain.miner = e.settings
           resetCountdown()
           break
+      }
+      if (e.type !== 'hello' && e.type !== 'block') {
+        chain.feed = [e, ...chain.feed].slice(0, FEED_LEN)
+        if (e.type === 'vault_registered') chain.vaultsTick++
       }
     },
     (open) => (chain.connected = open),

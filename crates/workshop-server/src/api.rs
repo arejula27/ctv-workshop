@@ -1,5 +1,5 @@
 use std::{
-    collections::HashMap,
+    collections::{HashMap, VecDeque},
     str::FromStr,
     sync::Arc,
     time::{Duration, Instant},
@@ -23,17 +23,22 @@ use crate::{
     chain::{Chain, MinerSettings},
     config::{Config, MIN_MINER_INTERVAL},
     events::{self, Event},
+    registry::Registry,
+    room,
 };
 
 pub struct AppState {
     pub config: Config,
     pub chain: Arc<Chain>,
+    pub registry: Registry,
+    /// Latest feed events, replayed to new WebSocket clients.
+    pub recent: Mutex<VecDeque<Event>>,
     faucet_last: Mutex<HashMap<String, Instant>>,
 }
 
 impl AppState {
-    pub fn new(config: Config, chain: Arc<Chain>) -> Self {
-        Self { config, chain, faucet_last: Mutex::default() }
+    pub fn new(config: Config, chain: Arc<Chain>, registry: Registry) -> Self {
+        Self { config, chain, registry, recent: Mutex::default(), faucet_last: Mutex::default() }
     }
 }
 
@@ -48,6 +53,9 @@ pub fn router(state: Arc<AppState>) -> Router {
         .route("/api/health", get(|| async { "ok" }))
         .route("/api/status", get(status))
         .route("/api/faucet", post(faucet))
+        .route("/api/participants", get(room::participants).post(room::join))
+        .route("/api/vaults", get(room::vaults).post(room::register_vault))
+        .route("/api/activity", post(room::activity))
         .nest("/api/admin", admin)
         .route("/ws", get(events::ws_handler))
         .with_state(state)
@@ -55,10 +63,10 @@ pub fn router(state: Arc<AppState>) -> Router {
 
 // ---------- errors ----------
 
-pub struct ApiError(StatusCode, String);
+pub struct ApiError(pub StatusCode, pub String);
 
 impl ApiError {
-    fn bad_request(msg: impl Into<String>) -> Self {
+    pub fn bad_request(msg: impl Into<String>) -> Self {
         Self(StatusCode::BAD_REQUEST, msg.into())
     }
 }
@@ -77,9 +85,18 @@ impl IntoResponse for ApiError {
     }
 }
 
-type ApiResult<T> = Result<Json<T>, ApiError>;
+pub type ApiResult<T> = Result<Json<T>, ApiError>;
 
 // ---------- public ----------
+
+/// Normalized regtest address, or a 400.
+pub fn regtest_address(s: &str) -> Result<String, ApiError> {
+    Ok(Address::from_str(s.trim())
+        .map_err(|e| ApiError::bad_request(format!("invalid address: {e}")))?
+        .require_network(Network::Regtest)
+        .map_err(|_| ApiError::bad_request("not a regtest address"))?
+        .to_string())
+}
 
 #[derive(Clone, Debug, Serialize)]
 pub struct Status {
@@ -121,11 +138,7 @@ async fn faucet(
     State(state): State<Arc<AppState>>,
     Json(req): Json<FaucetReq>,
 ) -> ApiResult<FaucetResp> {
-    let address = Address::from_str(req.address.trim())
-        .map_err(|e| ApiError::bad_request(format!("invalid address: {e}")))?
-        .require_network(Network::Regtest)
-        .map_err(|_| ApiError::bad_request("not a regtest address"))?
-        .to_string();
+    let address = regtest_address(&req.address)?;
 
     {
         let mut last = state.faucet_last.lock().await;

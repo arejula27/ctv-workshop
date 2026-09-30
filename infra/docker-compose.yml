@@ -60,6 +60,9 @@ services:
       MINER_PAUSED: ${MINER_PAUSED:-false}
       FAUCET_AMOUNT_SAT: ${FAUCET_AMOUNT_SAT:-1000000}
       FAUCET_COOLDOWN_S: ${FAUCET_COOLDOWN_S:-60}
+      REGISTRY_PATH: /data/registry.json
+    volumes:
+      - server-data:/data
     depends_on:
       bitcoind:
         condition: service_healthy
@@ -80,6 +83,7 @@ services:
     restart: unless-stopped
 
 volumes:
+  server-data:
   bitcoind-data:
   electrs-data:
   caddy-data:

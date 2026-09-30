@@ -9,7 +9,7 @@ use axum::{
     },
     response::Response,
 };
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use tokio::sync::broadcast::error::RecvError;
 
 use crate::{
@@ -20,9 +20,11 @@ use crate::{
 #[derive(Clone, Debug, Serialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum Event {
-    /// Sent once on connect.
+    /// Sent once on connect, with the latest feed items so a reloaded
+    /// `/screen` isn't empty.
     Hello {
         status: Status,
+        recent: Vec<Event>,
     },
     Block {
         height: u64,
@@ -40,6 +42,63 @@ pub enum Event {
         blocks: u64,
         height: u64,
     },
+    ParticipantJoined {
+        name: String,
+    },
+    VaultRegistered {
+        owner: String,
+        amount_sat: u64,
+        delay: u16,
+        outpoint: String,
+    },
+    Activity {
+        who: String,
+        kind: ActivityKind,
+        /// Owner of the vault it happened to.
+        owner: String,
+        amount_sat: u64,
+        /// The vault's funding outpoint.
+        outpoint: String,
+        txid: String,
+    },
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "snake_case")]
+pub enum ActivityKind {
+    VaultStart,
+    VaultToCold,
+    VaultPanic,
+    VaultWithdraw,
+    TheftStart,
+    TheftSuccess,
+}
+
+impl Event {
+    /// Worth showing in the feed (blocks are shown by the clock instead).
+    fn is_feed(&self) -> bool {
+        !matches!(self, Event::Hello { .. } | Event::Block { .. })
+    }
+}
+
+const FEED_LEN: usize = 30;
+
+/// Keeps the last feed items for `Hello`.
+pub async fn record_feed(state: Arc<AppState>) {
+    let mut rx = state.chain.events.subscribe();
+    loop {
+        match rx.recv().await {
+            Ok(ev) if ev.is_feed() => {
+                let mut recent = state.recent.lock().await;
+                if recent.len() == FEED_LEN {
+                    recent.pop_front();
+                }
+                recent.push_back(ev);
+            }
+            Ok(_) | Err(RecvError::Lagged(_)) => {}
+            Err(RecvError::Closed) => return,
+        }
+    }
 }
 
 pub async fn ws_handler(ws: WebSocketUpgrade, State(state): State<Arc<AppState>>) -> Response {
@@ -49,8 +108,9 @@ pub async fn ws_handler(ws: WebSocketUpgrade, State(state): State<Arc<AppState>>
 async fn forward_events(mut socket: WebSocket, state: Arc<AppState>) {
     let mut rx = state.chain.events.subscribe();
 
+    let recent = state.recent.lock().await.iter().cloned().collect();
     if let Ok(status) = status_snapshot(&state).await
-        && send(&mut socket, &Event::Hello { status }).await.is_err()
+        && send(&mut socket, &Event::Hello { status, recent }).await.is_err()
     {
         return;
     }

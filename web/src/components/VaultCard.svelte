@@ -6,10 +6,8 @@
   import { treeStatus, type ContractStatus } from '../lib/treeStatus'
   import { blocksToTime, sats } from '../lib/format'
   import TreeView from './TreeView.svelte'
-
-  // Leaf indexes, see ctv_core::contracts::vault
-  const VAULT_START = 0
-  const UNVAULT_HOT = 0
+  import { blocksLeft as blocksLeftOf, unvaultOutpoint, vaultPhase } from '../lib/vaultPhase'
+  import { reportActivity, type ActivityKind } from '../lib/api'
 
   let { v }: { v: SavedVault } = $props()
 
@@ -20,24 +18,9 @@
   let showTree = $state(false)
   let showKit = $state(false)
 
-  let unvaultOp = $derived(view.leaves[VAULT_START].tx!.outputs[0].contract!.outpoint!)
-  let root = $derived(statuses.get(v.outpoint))
-  let unvault = $derived(statuses.get(unvaultOp))
-
-  type Phase = 'loading' | 'funding' | 'locked' | 'withdrawing' | 'cold' | 'panicked' | 'hot'
-  let phase: Phase = $derived.by(() => {
-    if (!root || root.funding === 'unknown') return 'loading'
-    if (root.funding === 'mempool') return 'funding'
-    if (root.spentLeaf == null) return 'locked'
-    if (root.spentLeaf !== VAULT_START) return 'cold'
-    if (unvault?.spentLeaf == null) return 'withdrawing'
-    return unvault.spentLeaf === UNVAULT_HOT ? 'hot' : 'panicked'
-  })
-
-  // Blocks until the hot key may withdraw (BIP68: next block must reach height + delay).
-  let blocksLeft = $derived(
-    unvault?.height != null ? unvault.height + v.params.delay - (chain.height + 1) : null,
-  )
+  let unvault = $derived(statuses.get(unvaultOutpoint(view)))
+  let phase = $derived(vaultPhase(view, statuses))
+  let blocksLeft = $derived(blocksLeftOf(unvault, v.params.delay, chain.height))
   let hotByMe = $derived(unvault?.spentBy != null && unvault.spentBy === v.hotTxid)
   let isThief = $derived(v.role === 'thief')
 
@@ -60,13 +43,15 @@
     refresh()
   })
 
-  async function act(build: () => SignedTx, after?: (tx: SignedTx) => void) {
+  async function act(kind: ActivityKind, build: () => SignedTx, after?: (tx: SignedTx) => void) {
     busy = true
     error = ''
     try {
       const tx = build()
       await esplora.broadcast(tx.hex)
       after?.(tx)
+      // Tell the room (feeds /screen); never block the action on it.
+      if (me.id) reportActivity(me.id.name, kind, v.outpoint, tx.txid).catch(() => {})
       await refresh()
       refreshBalances().catch(() => {})
     } catch (e) {
@@ -76,13 +61,15 @@
     }
   }
 
-  const start = () => act(() => core.start(v.params, v.outpoint))
-  const toCold = () => act(() => core.toCold(v.params, v.outpoint))
-  const panic = () => act(() => core.panic(v.params, v.outpoint))
+  const start = () =>
+    act(isThief ? 'theft_start' : 'vault_start', () => core.start(v.params, v.outpoint))
+  const toCold = () => act('vault_to_cold', () => core.toCold(v.params, v.outpoint))
+  const panic = () => act('vault_panic', () => core.panic(v.params, v.outpoint))
   function withdrawHot() {
     if (!me.wallet) return
     const secret = isThief ? v.hotSecret! : hotSecretOfMine()
     act(
+      isThief ? 'theft_success' : 'vault_withdraw',
       () => core.withdrawHot(v.params, v.outpoint, me.wallet!.main_address, secret),
       (tx) => addVault({ ...v, hotTxid: tx.txid }),
     )
@@ -91,18 +78,9 @@
   // The owner's hot key comes from their seed.
   const hotSecretOfMine = () => hotSecret(me.id!.seed)
 
-  let kit = $derived(
-    'ctvkit:' +
-      btoa(
-        JSON.stringify({
-          v: 1,
-          owner: me.id?.name,
-          params: v.params,
-          outpoint: v.outpoint,
-          hot_secret: v.role === 'owner' && me.id ? hotSecretOfMine() : v.hotSecret,
-        }),
-      ),
-  )
+  // What the owner hands to the thief: just the hot key. The thief's app finds
+  // the vault through the room registry.
+  let kit = $derived(v.role === 'owner' && me.id ? hotSecretOfMine() : '')
 
   const toneOf = (label: string) =>
     /caja fuerte|pánico/i.test(label) ? 'cold' : /caliente/i.test(label) ? 'hot' : undefined
@@ -198,8 +176,8 @@
 
   {#if showKit}
     <div class="kit">
-      <p>Pasa este código a quien haga de ladrona. Es tu <b class="t-hot">llave caliente</b> (y nada más).</p>
-      <textarea readonly rows="3" onfocus={(e) => e.currentTarget.select()}>{kit}</textarea>
+      <p>Pasa esta llave a quien haga de ladrona. Es tu <b class="t-hot">llave caliente</b>, y nada más: la caja fuerte sigue siendo solo tuya.</p>
+      <textarea readonly rows="2" onfocus={(e) => e.currentTarget.select()}>{kit}</textarea>
       <button class="secondary" onclick={() => navigator.clipboard?.writeText(kit)}>Copiar</button>
     </div>
   {/if}

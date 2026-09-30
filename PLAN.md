@@ -250,7 +250,8 @@ Atribución en `vendor-notes/` y en la cabecera de cada archivo copiado.
 | F2 | ✅ Pool de stutxo contra Inquisition v29.4: salidas CTV confirmadas (ver `vendor-notes/`) |
 | F3 | ✅ `ctv-core`: hash CTV, taproot, motor de árbol, vault. Tests unitarios + integración contra el stack (4 caminos del vault) |
 | F4 | ✅ WASM + web del vault. Partida completa (dueña + ladrona) verificada con dos navegadores headless |
-| F5 | ⏭ Siguiente |
+| F5 | ✅ Sala (registro de participantes y vaults), `/screen` para el proyector, `/admin` para el presentador |
+| F6 | ⏭ Siguiente |
 
 ### F3: resultado
 - `ctv.rs`: `template_hash` BIP-119 completo; pasa **todos** los vectores oficiales.
@@ -286,13 +287,29 @@ Atribución en `vendor-notes/` y en la cabecera de cada archivo copiado.
 - Tests: `tests/regtest_vault.rs` añade el flujo completo con la wallet; `infra/scripts/test-ui.sh` juega la partida con
   dos navegadores (Playwright en Docker, sin librerías en el host) y deja capturas en `web/e2e/shots/`.
 
-### F5: siguiente
-1. `/admin` (token): reloj, pausa, salto, participantes.
-2. `/screen` para el proyector: altura, cuenta atrás, feed de eventos ("Ana ha pulsado el pánico").
-3. **Registro de vaults en el servidor** (WS): la app publica cada vault (nombre, parámetros, outpoint). Así la ladrona
-   solo necesita pegar la **clave caliente** de otra persona (la app busca el vault por `hot_pubkey`) y `/screen` puede
-   mostrar los vaults de la sala. Sustituye al código `ctvkit:`.
-4. Eventos del cliente al servidor: vault creado, retiro iniciado, pánico, robo.
+### F5: resultado
+- **Registro de la sala** en `workshop-server` (`registry.rs`, `room.rs`), persistido en el volumen `server-data`
+  (`reset.sh` lo borra): `POST/GET /api/participants`, `POST/GET /api/vaults`, `POST /api/activity`.
+  No se fía del cliente: cada vault se recalcula con `ctv-core` y se comprueba que el outpoint paga a esa dirección;
+  cada actividad debe apuntar a una tx que el nodo conoce.
+- La app se (re)anuncia al cargar (participante + sus vaults), así que sobrevive a reinicios del server.
+- **La ladrona pega solo la clave caliente** (64 hex): la app busca en el registro los vaults con ese `hot_pubkey`.
+  Adiós al código `ctvkit:`.
+- Eventos nuevos en `/ws`: `participant_joined`, `vault_registered`, `activity` (inicio, pánico, a la caja fuerte,
+  retiro, intento de robo, robo). `hello` incluye los últimos 30 (`recent`) para que `/screen` no salga vacía.
+- **`/screen`** (sin cartera): bloque en grande, cuenta atrás, "Entra en <host>", tablero con todos los vaults
+  (cerrado / retiro en curso con cuenta atrás y animación / salvado / retirado / robado) y feed.
+- **`/admin`** (token en localStorage): pausa, ritmo (5/10/30/60 s), saltos (+1/+5/+10/+50/custom), lista de la sala.
+- `lib/vaultPhase.ts`: estado del vault compartido por la tarjeta y el tablero.
+- `test-ui.sh` ahora juega dos rondas: pánico a tiempo y robo con éxito (con salto desde `/admin`), comprobando
+  `/screen`. Nombres aleatorios por ejecución (el feed guarda histórico).
+- Decisión: **wallet propia, sin bdk** (confirmado).
+
+### F6: siguiente — herencia y suscripción
+1. `contracts/inheritance.rs`: `[dueño CHECKSIG] | [<N> CSV DROP <H(reparto)> CTV]`; "sigo vivo" = el dueño gasta a la misma estructura.
+2. `contracts/subscription.rs`: cadena de K tramos construida del último al primero; `[<N> CSV DROP <H(pago_k)> CTV] | [pagador CHECKSIG]`.
+3. Tests de regtest de todos los caminos, bindings wasm, páginas `/herencia` y `/suscripcion` con el mismo
+   lenguaje visual (reutilizando `TreeView`, `treeStatus`, tarjeta partida) y su reflejo en `/screen`.
 
 ### Notas de entorno
 - En este Docker hay otros stacks regtest (btcpay, arkd, mempool…) usando 18443, 3000, 50001… → nuestro RPC de depuración está en 18543.
