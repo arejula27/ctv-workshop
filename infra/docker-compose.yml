@@ -3,6 +3,7 @@ name: ctv-workshop
 services:
   bitcoind:
     build: ./bitcoind
+    stop_grace_period: 1m # let bitcoind flush to disk on shutdown
     command: ["-rpcuser=${RPC_USER}", "-rpcpassword=${RPC_PASS}"]
     volumes:
       - bitcoind-data:/home/bitcoin/.bitcoin

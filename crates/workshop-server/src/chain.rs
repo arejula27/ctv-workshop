@@ -28,6 +28,7 @@ pub struct MinerSettings {
 pub struct Chain {
     pub node: Rpc,
     pub wallet: Rpc,
+    wallet_name: String,
     mining_addr: String,
     /// Serializes block generation so concurrent requests don't interleave.
     mine_lock: Mutex<()>,
@@ -56,6 +57,7 @@ impl Chain {
         let chain = Arc::new(Self {
             node,
             wallet,
+            wallet_name: wallet_name.to_owned(),
             mining_addr,
             mine_lock: Mutex::new(()),
             events,
@@ -86,12 +88,29 @@ impl Chain {
                 self.node.call("generatetoaddress", json!([batch, self.mining_addr])).await?;
             left -= batch;
         }
+        // bitcoind only flushes its block index now and then; if it gets killed
+        // (Docker Desktop crash, laptop sleep) it restarts from genesis and every
+        // contract in the room is gone. gettxoutsetinfo forces a flush, and on a
+        // workshop-sized regtest it takes milliseconds.
+        if let Err(e) =
+            self.node.call::<serde_json::Value>("gettxoutsetinfo", json!(["none"])).await
+        {
+            warn!("flush after mining failed: {e}");
+        }
         self.height().await
     }
 
     pub async fn send(&self, address: &str, sats: u64) -> Result<String> {
         let btc = bitcoin::Amount::from_sat(sats).to_btc();
-        Ok(self.wallet.call("sendtoaddress", json!([address, btc])).await?)
+        match self.wallet.call("sendtoaddress", json!([address, btc])).await {
+            // bitcoind restarted and the wallet isn't loaded yet: load it and retry
+            Err(e) if e.code() == Some(RPC_WALLET_NOT_FOUND) => {
+                warn!("faucet wallet not loaded, reloading");
+                ensure_wallet(&self.node, &self.wallet_name).await?;
+                Ok(self.wallet.call("sendtoaddress", json!([address, btc])).await?)
+            }
+            res => Ok(res?),
+        }
     }
 
     pub fn next_block_in_ms(&self) -> Option<u64> {
@@ -166,14 +185,15 @@ async fn wait_for_node(node: &Rpc) -> Result<()> {
 }
 
 async fn ensure_wallet(node: &Rpc, name: &str) -> Result<()> {
-    match node.call::<serde_json::Value>("loadwallet", json!([name])).await {
+    // load_on_startup: bitcoind reloads it by itself after a restart
+    let load = json!({ "filename": name, "load_on_startup": true });
+    match node.call::<serde_json::Value>("loadwallet", load).await {
         Ok(_) => Ok(()),
         Err(e) if e.code() == Some(RPC_WALLET_ALREADY_LOADED) => Ok(()),
         Err(e) if e.code() == Some(RPC_WALLET_NOT_FOUND) => {
             info!(name, "creating faucet wallet");
-            node.call::<serde_json::Value>("createwallet", json!([name]))
-                .await
-                .context("createwallet")?;
+            let create = json!({ "wallet_name": name, "load_on_startup": true });
+            node.call::<serde_json::Value>("createwallet", create).await.context("createwallet")?;
             Ok(())
         }
         Err(e) => Err(e.into()),

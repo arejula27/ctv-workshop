@@ -27,6 +27,13 @@ ADMIN_TOKEN=... infra/scripts/smoke.sh             # comprobación end-to-end
 
 Reiniciar la cadena desde cero: `infra/scripts/reset.sh`.
 
+Tests de integración de los contratos contra el stack: `infra/scripts/test-regtest.sh`.
+
+**Si Docker Desktop se reinicia** y los puertos publicados dan "connection reset" (los contenedores
+siguen vivos pero el port-forwarding queda colgado):
+`docker compose -f infra/docker-compose.yml --env-file infra/.env up -d --force-recreate`.
+La cadena sobrevive a un cierre brusco: el server fuerza a bitcoind a escribir a disco tras cada bloque.
+
 ## API del servidor
 
 | Método | Ruta | Auth | |

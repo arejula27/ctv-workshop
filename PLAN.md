@@ -241,10 +241,42 @@ Atribución en `vendor-notes/` y en la cabecera de cada archivo copiado.
 
 ---
 
-## 8. Estado (2026-09-27)
+## 8. Estado (2026-09-27, fin de la sesión)
 
 | Fase | Estado |
 |---|---|
-| F0 | ✅ Rust 1.98 + wasm32, Node 24 (en `~/.local/node`), workspace, web Svelte. `wasm-pack` se instala en F4 |
-| F1 | ✅ Compose levantado (bitcoind, electrs, explorer, server, Caddy). `smoke.sh` completo pasa, esplora incluido; web y WS funcionan a través de Caddy |
+| F0 | ✅ Rust 1.98 + wasm32, Node 24 (`~/.local/node`), clang 21 (necesario para compilar `secp256k1` a wasm32), workspace, web Svelte. `wasm-pack` se instala en F4 |
+| F1 | ✅ Compose levantado (bitcoind, electrs, explorer, server, Caddy). `smoke.sh` completo pasa, esplora incluido; web y WS funcionan a través de Caddy. Commit `1f257a1` |
 | F2 | ✅ Pool de stutxo contra Inquisition v29.4: salidas CTV confirmadas (ver `vendor-notes/`) |
+| F3 | ✅ `ctv-core`: hash CTV, taproot, motor de árbol, vault. Tests unitarios + integración contra el stack (4 caminos del vault) |
+| F4 | ⏭ Siguiente |
+
+### F3: resultado
+- `ctv.rs`: `template_hash` BIP-119 completo; pasa **todos** los vectores oficiales.
+- `taproot.rs`: clave NUMS (H de BIP-341), árbol balanceado (profundidades de stutxo).
+- `tree.rs`: motor genérico. `Contract { leaves }`, `Leaf::Ctv { csv?, signer?, next }` →
+  `[<csv> CSV DROP] [<pk> CHECKSIGVERIFY] <hash> CTV`, `Leaf::Key { csv?, signer }` → `[<csv> CSV DROP] <pk> CHECKSIG`,
+  `Template { outputs }` (v2, locktime 0, 1 entrada). Se compila de las hojas a la raíz y valida importes.
+  Gasto con `spend_ctv` / `spend_key` (firma schnorr determinista, sin RNG → wasm sencillo).
+  `view(network, outpoint)` serializa el árbol con todos los txid (son deterministas desde que se financia la raíz) → base del `TreeView`.
+- `contracts/vault.rs`: `vault = [CTV→inicio retiro] | [CTV→fría]`, `retiro = [hot tras delay] | [CTV→fría (pánico)]`. Etiquetas en español para la UI.
+- `tests/regtest_vault.rs` (+ `infra/scripts/test-regtest.sh`): directo a fría; retiro + pánico; hot rechazada
+  antes de tiempo (`non-BIP68-final`) y aceptada tras `delay`; plantilla manipulada (destino o importe) rechazada por consenso.
+
+### Robustez (descubierto en F3)
+- **Un cierre brusco de Docker Desktop borraba la cadena** (bitcoind volvía a `blocks=0`; solo sobrevivía la wallet).
+  Arreglo: el server llama a `gettxoutsetinfo` tras cada minado (fuerza el flush) + `stop_grace_period: 1m`.
+  Verificado con `docker kill -s KILL`: la altura se conserva.
+- Tras reiniciar bitcoind la wallet del faucet no se recargaba. Arreglo: `load_on_startup` + recarga y reintento en el faucet. Verificado.
+- Tras reiniciar Docker Desktop el port-forwarding puede quedarse colgado → `up -d --force-recreate` (en README y runbook).
+
+### F4: siguiente
+1. Instalar `wasm-pack` (o `wasm-bindgen-cli`) e integrar el build de `ctv-wasm` en Vite.
+2. `ctv-wasm`: `wallet_new/restore` (clave P2TR en localStorage), `vault_create`, `vault_start/panic/to_cold/withdraw_hot`, `vault_view`.
+   Probar primero una wallet mínima propia (una clave P2TR + UTXOs de esplora); `bdk_wallet` solo si hace falta más.
+3. Web: onboarding, `/wallet` (saldo vía esplora, faucet), `/vault` con narración y `TreeView` (cytoscape.js) coloreando cada tx según esplora (`/tx/:txid/status`, `/tx/:txid/outspend/:vout`).
+4. Criterio: dos navegadores, A "roba" la clave hot de B, B pulsa el pánico a tiempo.
+
+### Notas de entorno
+- En este Docker hay otros stacks regtest (btcpay, arkd, mempool…) usando 18443, 3000, 50001… → nuestro RPC de depuración está en 18543.
+- Levantar: `docker compose -f infra/docker-compose.yml --env-file infra/.env up -d`; comprobar: `set -a; . infra/.env; set +a; infra/scripts/smoke.sh`.
