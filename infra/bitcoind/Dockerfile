@@ -1,5 +1,5 @@
 # Official Bitcoin Inquisition release binaries (no compiling), checksum pinned.
-FROM debian:trixie-slim
+FROM debian:trixie-slim@sha256:a99cfc517144bc59b1978475ec53b46ecabec7e43635402ee5b77cc54cd1b20a
 
 ARG INQ_VERSION=29.4
 ARG INQ_SHA256=7ad3cb745575f7c21916cf3c294a95f59e11e5bf6e37c4a47b92697cf4723e22

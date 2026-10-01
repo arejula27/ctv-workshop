@@ -27,6 +27,8 @@ ADMIN_TOKEN=... infra/scripts/smoke.sh             # comprobación end-to-end
 
 Reiniciar la cadena desde cero: `infra/scripts/reset.sh`.
 
+Prueba de carga (25 participantes simulados a la vez): `ADMIN_TOKEN=... node web/e2e/load.mjs`.
+
 Tests contra el stack: `infra/scripts/test-regtest.sh` (contratos) e `infra/scripts/test-ui.sh`
 (las cuatro demos con navegadores headless; capturas en `web/e2e/shots/`). Sin Docker:
 `infra/scripts/native-regtest.sh start|test|stop`.

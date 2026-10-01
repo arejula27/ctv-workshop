@@ -18,7 +18,7 @@ services:
   # Indexer + Esplora REST API. Reused from Nigiri (vulpemventures); it only
   # reads blocks over RPC, so it indexes CTV transactions like any other.
   electrs:
-    image: ghcr.io/vulpemventures/electrs:latest
+    image: ghcr.io/vulpemventures/electrs@sha256:999a2218f423c0fb167ee53b282aa7929a9d4abba38ef16f67f407acd00589d4 # latest on 2026-10-02
     entrypoint: ["/build/electrs"]
     command:
       - -vv
@@ -39,7 +39,7 @@ services:
 
   # Esplora web explorer, for projecting transactions on screen.
   explorer:
-    image: ghcr.io/vulpemventures/esplora:latest
+    image: ghcr.io/vulpemventures/esplora@sha256:e87335c4f3625c46eac6d4988a13cf6c5ae6af69c6b1dbbf62dfc7449b4c1587 # latest on 2026-10-02
     environment:
       API_URL: ${PUBLIC_URL:-http://localhost:8080}/esplora
     ports:
@@ -69,7 +69,7 @@ services:
     restart: unless-stopped
 
   caddy:
-    image: caddy:2
+    image: caddy:2@sha256:0c994536bddb66445885237f1a5dcc1916bccea922661c76b4e9fc24061f9b52
     environment:
       SITE_ADDRESS: ${SITE_ADDRESS:-:80}
     ports:

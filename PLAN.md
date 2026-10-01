@@ -253,7 +253,7 @@ Atribución en `vendor-notes/` y en la cabecera de cada archivo copiado.
 | F5 | ✅ Sala (registro de participantes y vaults), `/screen` para el proyector, `/admin` para el presentador |
 | F6 | ✅ Herencia y suscripción cancelable: contratos, tests de regtest, wasm, páginas, registro en la sala |
 | F7 | ✅ Payment pool: contrato con firma por salida, coordinador de mesas, página, tests |
-| F8 | ⏭ Siguiente |
+| F8 | 🟡 Carga ✅ · imágenes fijadas ✅ · tablero del proyector por decidir |
 
 ### F3: resultado
 - `ctv.rs`: `template_hash` BIP-119 completo; pasa **todos** los vectores oficiales.
@@ -350,12 +350,14 @@ Atribución en `vendor-notes/` y en la cabecera de cada archivo copiado.
   Árbol **podado** (`prune()` en `treeStatus.ts`): solo lo ocurrido + las salidas posibles ahora.
 - Test UI `pool-game.mjs` con tres navegadores.
 
-### F8: siguiente — preparar el día del workshop
-1. Prueba de carga: 20–30 clientes simulados (faucet + vault + pool a la vez) contra el stack; vigilar electrs y el server.
-2. Fijar por digest las imágenes `:latest` (electrs, esplora, caddy) y comprobar un `reset.sh` limpio.
-3. `/screen`: añadir herencias, suscripciones y mesas al tablero (hoy solo vaults; el resto sale en el feed).
-4. `workshop/runbook.md` (orden de demos, ritmo del reloj y saltos por escena, plan B), `cheatsheet.md` + QR, slides.
-5. Despliegue en VPS (`SITE_ADDRESS`, HTTPS) y ensayo general con 5–10 personas.
+### F8: preparar el día (en curso)
+- ✅ **Prueba de carga** (`node web/e2e/load.mjs`, `N=25` por defecto): 25 participantes + 5 mesas de pool a la vez
+  (faucet, vault con robo y pánico, suscripción con cobro, pool hasta disolverse), reloj a 1 bloque/3 s y 26 WebSockets.
+  Resultado: **0 errores en 32 s**. Picos: bitcoind 89 % de un núcleo y 106 MB; resto < 15 % CPU. API y esplora en
+  milisegundos; el faucet tarda 2–4 s con 25 peticiones simultáneas (la wallet de bitcoind las serializa): aceptable.
+- ✅ **Imágenes fijadas por digest** (electrs, esplora, caddy, debian, rust) en el compose y los Dockerfiles.
+- ❓ Tablero de `/screen` con fichas para herencias, suscripciones y mesas (hoy solo vaults): pendiente de decidir.
+- Fuera de alcance (decidido): guion/hoja/slides, despliegue en VPS y ensayo general.
 
 ### Notas de entorno
 - En este Docker hay otros stacks regtest (btcpay, arkd, mempool…) usando 18443, 3000, 50001… → nuestro RPC de depuración está en 18543.
