@@ -36,6 +36,8 @@ pub struct Chain {
     pub miner: watch::Sender<MinerSettings>,
     /// Unix ms of the next auto-mined block, 0 when paused.
     next_block_at_ms: AtomicU64,
+    /// Timestamp of block 1: day zero of the simulated calendar.
+    sim_epoch_s: AtomicU64,
 }
 
 impl Chain {
@@ -63,6 +65,7 @@ impl Chain {
             events,
             miner: watch::channel(miner).0,
             next_block_at_ms: AtomicU64::new(0),
+            sim_epoch_s: AtomicU64::new(0),
         });
 
         let height = chain.height().await?;
@@ -70,6 +73,12 @@ impl Chain {
             info!(from = height, to = seed_blocks, "seeding chain");
             chain.mine(seed_blocks - height).await?;
         }
+        // Real block times don't move on a time jump (regtest stamps wall-clock time),
+        // so the app shows a simulated calendar anchored at block 1. It lives and dies
+        // with the chain, so a reset starts a new calendar.
+        let hash: String = chain.node.call("getblockhash", json!([1])).await?;
+        let header: serde_json::Value = chain.node.call("getblockheader", json!([hash])).await?;
+        chain.sim_epoch_s.store(header["time"].as_u64().unwrap_or_default(), Ordering::Relaxed);
         Ok(chain)
     }
 
@@ -111,6 +120,10 @@ impl Chain {
             }
             res => Ok(res?),
         }
+    }
+
+    pub fn sim_epoch_s(&self) -> u64 {
+        self.sim_epoch_s.load(Ordering::Relaxed)
     }
 
     pub fn next_block_in_ms(&self) -> Option<u64> {

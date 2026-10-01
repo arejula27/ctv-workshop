@@ -7,6 +7,9 @@ export type Status = {
   miner: MinerSettings
   next_block_in_ms: number | null
   faucet_amount_sat: number
+  /** Simulated calendar: block h happens at sim_epoch_s + (h - 1) * sim_block_s. */
+  sim_epoch_s: number
+  sim_block_s: number
 }
 
 export type FeedEvent =

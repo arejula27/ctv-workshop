@@ -101,6 +101,16 @@ await shot(screen, '8-screen')
 await shot(ana, '9-owner-robbed')
 console.log('✓ round 2: admin jump, theft succeeds, owner and screen see it')
 
+// The header date follows the simulated calendar: +144 blocks = +1 day.
+const before = await ana.locator('header .date').first().innerText()
+await adminPage.getByRole('spinbutton').fill('144')
+await adminPage.getByRole('button', { name: 'Saltar 144 bloques' }).click()
+await ana.waitForFunction((b) => document.querySelector('header .date')?.textContent !== b, before, { timeout: 15000 })
+await ana.waitForTimeout(3000) // the jump lands in batches; let the header settle
+const after = await ana.locator('header .date').first().innerText()
+await ana.locator('header').first().screenshot({ path: '/work/e2e/shots/10-header-after-jump.png' })
+console.log(`✓ calendar jump: ${before}  →  ${after}`)
+
 const phone = await (await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2 })).newPage()
 await phone.goto(BASE + '/')
 await phone.evaluate((s) => Object.entries(s).forEach(([k, v]) => localStorage.setItem(k, v)), await ana.evaluate(() => ({ ...localStorage })))

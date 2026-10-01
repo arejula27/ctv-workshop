@@ -66,7 +66,17 @@ export const chain = $state({
   feed: [] as FeedEvent[],
   /** Bumped when someone registers a vault. */
   vaultsTick: 0,
+  /** Simulated calendar (see Status). */
+  simEpoch: 0,
+  simBlock: 600,
 })
+
+/** Simulated date of block `height`: 10 minutes per block, like real Bitcoin, so a
+ *  jump of 144 blocks moves the calendar one day forward. */
+export function simDate(height: number): Date | null {
+  if (!chain.simEpoch) return null
+  return new Date((chain.simEpoch + (height - 1) * chain.simBlock) * 1000)
+}
 
 const FEED_LEN = 30
 
@@ -86,6 +96,8 @@ export function startChain() {
           chain.nextBlockAt =
             e.status.next_block_in_ms == null ? null : Date.now() + e.status.next_block_in_ms
           chain.feed = [...e.recent].reverse()
+          chain.simEpoch = e.status.sim_epoch_s
+          chain.simBlock = e.status.sim_block_s
           chain.tick++
           break
         case 'block':

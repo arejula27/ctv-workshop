@@ -241,7 +241,7 @@ Atribución en `vendor-notes/` y en la cabecera de cada archivo copiado.
 
 ---
 
-## 8. Estado (2026-09-27, fin de la sesión)
+## 8. Estado (2026-10-01, fin de la sesión)
 
 | Fase | Estado |
 |---|---|
@@ -304,6 +304,22 @@ Atribución en `vendor-notes/` y en la cabecera de cada archivo copiado.
 - `test-ui.sh` ahora juega dos rondas: pánico a tiempo y robo con éxito (con salto desde `/admin`), comprobando
   `/screen`. Nombres aleatorios por ejecución (el feed guarda histórico).
 - Decisión: **wallet propia, sin bdk** (confirmado).
+
+### Extra tras F5 (sin commit al cerrar la sesión del 2026-10-01)
+- **Calendario simulado**: la hora real de los bloques no sirve para ver un salto (regtest pone la hora del reloj),
+  así que la fecha se calcula a **10 min por bloque**, como en Bitcoin: `fecha(h) = time(bloque 1) + (h-1)·600 s`.
+  El server lo expone en `status`/`hello` (`sim_epoch_s`, `sim_block_s`; `SIM_BLOCK_S` configurable). Nace y muere
+  con la cadena (`reset.sh` empieza calendario nuevo).
+- Se ve en la cabecera de todas las páginas (📅 7 oct 2026, 05:40), en `/screen`, en la espera del vault
+  ("= 1 h 40 min en Bitcoin real") y en el temporizador ("se abre el 8 oct 2026, 05:40").
+- Test UI: salto de 144 bloques desde `/admin` → la cabecera avanza exactamente un día.
+
+### Para retomar
+1. Revisar y hacer commit del calendario simulado (`git status`: server `chain.rs`/`api.rs`/`config.rs`, web header/screen/vault, test UI).
+2. Levantar y comprobar: `docker compose -f infra/docker-compose.yml --env-file infra/.env up -d`, luego
+   `infra/scripts/smoke.sh`, `infra/scripts/test-regtest.sh`, `infra/scripts/test-ui.sh`.
+   Si los puertos dan "connection reset" tras reiniciar Docker Desktop: `up -d --force-recreate`.
+3. Empezar F6.
 
 ### F6: siguiente — herencia y suscripción
 1. `contracts/inheritance.rs`: `[dueño CHECKSIG] | [<N> CSV DROP <H(reparto)> CTV]`; "sigo vivo" = el dueño gasta a la misma estructura.

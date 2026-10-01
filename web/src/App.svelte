@@ -1,7 +1,8 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   import { ready } from './lib/core'
-  import { chain, initWallet, me, refreshBalances, startChain } from './lib/store.svelte'
+  import { chain, initWallet, me, refreshBalances, simDate, startChain } from './lib/store.svelte'
+  import { date } from './lib/format'
   import { navigate, route } from './lib/router.svelte'
   import Onboarding from './routes/Onboarding.svelte'
   import WalletPage from './routes/Wallet.svelte'
@@ -50,6 +51,7 @@
 <header>
   <a class="brand" href="/wallet" onclick={(e) => { e.preventDefault(); navigate('/wallet') }}>CTV Workshop</a>
   <div class="clock" class:off={!chain.connected} title="Altura de la cadena">
+    <span class="date" title="Calendario simulado: 10 minutos por bloque, como en Bitcoin">📅 {date(simDate(chain.height))}</span>
     ⛓ {chain.height || '—'}
     <span class="muted">
       {#if !chain.connected}desconectado{:else if chain.miner?.paused}⏸ pausa{:else if countdown != null}· {countdown}s{/if}
@@ -97,7 +99,8 @@
     z-index: 1;
   }
   .brand { font-weight: 700; color: var(--fg); text-decoration: none; }
-  .clock { font-variant-numeric: tabular-nums; font-weight: 600; }
+  .clock { font-variant-numeric: tabular-nums; font-weight: 600; display: flex; flex-wrap: wrap; gap: 0 0.75rem; justify-content: flex-end; }
+  .date { color: var(--fg); }
   .clock.off { color: var(--danger); }
   nav { display: flex; gap: 0.25rem; padding: 0.5rem 1rem 0; max-width: 44rem; margin: 0 auto; }
   nav a {

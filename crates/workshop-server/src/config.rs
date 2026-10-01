@@ -20,6 +20,8 @@ pub struct Config {
     pub max_jump: u64,
     /// Where the room registry is saved; in memory only when unset.
     pub registry_path: Option<std::path::PathBuf>,
+    /// Seconds per block on the simulated calendar (600 = like real Bitcoin).
+    pub sim_block_s: u64,
 }
 
 pub const MIN_MINER_INTERVAL: Duration = Duration::from_secs(2);
@@ -48,6 +50,7 @@ impl Config {
             seed_blocks: parse("SEED_BLOCKS", 200)?,
             max_jump: parse("MAX_JUMP", 1000)?,
             registry_path: var("REGISTRY_PATH").map(Into::into),
+            sim_block_s: parse("SIM_BLOCK_S", 600)?,
         })
     }
 }

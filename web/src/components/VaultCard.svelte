@@ -2,9 +2,9 @@
   import { onMount } from 'svelte'
   import { hotSecret, vault as core, type SignedTx } from '../lib/core'
   import * as esplora from '../lib/esplora'
-  import { addVault, chain, me, refreshBalances, removeVault, type SavedVault } from '../lib/store.svelte'
+  import { addVault, chain, me, refreshBalances, removeVault, simDate, type SavedVault } from '../lib/store.svelte'
   import { treeStatus, type ContractStatus } from '../lib/treeStatus'
-  import { blocksToTime, sats } from '../lib/format'
+  import { blocksToTime, date, sats, simDuration } from '../lib/format'
   import TreeView from './TreeView.svelte'
   import { blocksLeft as blocksLeftOf, unvaultOutpoint, vaultPhase } from '../lib/vaultPhase'
   import { reportActivity, type ActivityKind } from '../lib/api'
@@ -89,7 +89,7 @@
 <article class="card {phase}" class:thief={isThief}>
   <header>
     <strong>{isThief ? `🦹 Vault de ${v.owner ?? 'alguien'}` : '🔒 Tu vault'}</strong>
-    <span class="muted">{sats(v.params.amount_sat)} · espera de {v.params.delay} bloques</span>
+    <span class="muted">{sats(v.params.amount_sat)} · espera de {v.params.delay} bloques ({simDuration(v.params.delay, chain.simBlock)})</span>
   </header>
 
   <!-- What is happening, in plain words -->
@@ -107,7 +107,9 @@
         {#if unvault?.funding !== 'confirmed'}
           ⏱ Retiro iniciado, esperando al próximo bloque…
         {:else if blocksLeft != null && blocksLeft > 0}
-          ⏱ Faltan <b>{blocksLeft}</b> bloques {blocksToTime(blocksLeft, chain.miner?.interval_s)} para que la llave caliente pueda llevárselo
+          ⏱ Faltan <b>{blocksLeft}</b> bloques para que la llave caliente pueda llevárselo:
+          se abre el <b>{date(simDate(chain.height + 1 + blocksLeft))}</b>
+          <span class="muted">({blocksToTime(blocksLeft, chain.miner?.interval_s)} en la sala)</span>
         {:else}
           ⏱ ¡Tiempo cumplido! La llave caliente ya puede llevárselo
         {/if}

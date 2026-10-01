@@ -105,6 +105,9 @@ pub struct Status {
     pub miner: MinerSettings,
     pub next_block_in_ms: Option<u64>,
     pub faucet_amount_sat: u64,
+    /// Simulated calendar: block `h` happens at `sim_epoch_s + (h - 1) * sim_block_s`.
+    pub sim_epoch_s: u64,
+    pub sim_block_s: u64,
 }
 
 pub async fn status_snapshot(state: &AppState) -> anyhow::Result<Status> {
@@ -114,6 +117,8 @@ pub async fn status_snapshot(state: &AppState) -> anyhow::Result<Status> {
         miner: *state.chain.miner.borrow(),
         next_block_in_ms: state.chain.next_block_in_ms(),
         faucet_amount_sat: state.config.faucet_amount.to_sat(),
+        sim_epoch_s: state.chain.sim_epoch_s(),
+        sim_block_s: state.config.sim_block_s,
     })
 }
 

@@ -11,7 +11,7 @@
     spendableUtxos,
     vaults,
   } from '../lib/store.svelte'
-  import { blocksToTime, sats } from '../lib/format'
+  import { blocksToTime, sats, simDuration } from '../lib/format'
   import VaultCard from '../components/VaultCard.svelte'
 
   const FEE_SAT = 1_000
@@ -117,7 +117,7 @@
         <label>
           Espera para volver aquí (bloques)
           <input type="number" bind:value={delay} min="1" max="200" required />
-          <span class="hint">{blocksToTime(delay, chain.miner?.interval_s)}</span>
+          <span class="hint">= {simDuration(delay, chain.simBlock)} en Bitcoin real · {blocksToTime(delay, chain.miner?.interval_s)} hoy en la sala</span>
         </label>
         <button type="submit" class="hot" disabled={busy}>Crear vault</button>
       </form>

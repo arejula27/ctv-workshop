@@ -1,7 +1,8 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   import { listVaults, type VaultEntry } from '../lib/api'
-  import { chain } from '../lib/store.svelte'
+  import { chain, simDate } from '../lib/store.svelte'
+  import { date } from '../lib/format'
   import { describe } from '../lib/feed'
   import ScreenVault from '../components/ScreenVault.svelte'
 
@@ -31,6 +32,7 @@
   <section class="clock">
     <div class="label">Bloque</div>
     <div class="height">{chain.height || '—'}</div>
+    <div class="simdate">📅 {date(simDate(chain.height))}</div>
     <div class="next">
       {#if !chain.connected}
         desconectado
@@ -81,6 +83,7 @@
   .clock { text-align: center; }
   .label { text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); }
   .height { font-size: 6rem; font-weight: 800; font-variant-numeric: tabular-nums; line-height: 1; }
+  .simdate { font-size: 1.5rem; font-weight: 700; margin-top: 0.5rem; }
   .next { font-size: 1.4rem; margin-top: 0.5rem; }
   .url { margin-top: 2rem; font-size: 1.2rem; font-weight: 700; word-break: break-all; }
   h2 { margin-top: 0; }
