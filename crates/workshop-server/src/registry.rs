@@ -40,12 +40,36 @@ pub struct VaultEntry {
     pub registered_at: u64,
 }
 
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "snake_case")]
+pub enum ContractKind {
+    Inheritance,
+    Subscription,
+}
+
+/// An inheritance or subscription. `params` is the webapp's JSON, validated by
+/// `room` before it gets here. `id` is stable while `outpoint` can move (an
+/// inheritance's "I'm alive" re-creates it).
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct ContractEntry {
+    pub id: String,
+    pub kind: ContractKind,
+    pub owner: String,
+    pub params: serde_json::Value,
+    pub outpoint: String,
+    pub registered_at: u64,
+    pub updated_at: u64,
+}
+
 #[derive(Default, Serialize, Deserialize)]
 struct Data {
     /// Keyed by the participant's main address.
     participants: BTreeMap<String, Participant>,
     /// Keyed by funding outpoint.
     vaults: BTreeMap<String, VaultEntry>,
+    /// Keyed by id. `default` keeps registries saved before F6 loading.
+    #[serde(default)]
+    contracts: BTreeMap<String, ContractEntry>,
 }
 
 pub struct Registry {
@@ -96,6 +120,42 @@ impl Registry {
     pub async fn vaults(&self) -> Vec<VaultEntry> {
         let mut list: Vec<_> = self.data.read().await.vaults.values().cloned().collect();
         list.sort_by_key(|v| v.registered_at);
+        list
+    }
+
+    /// Inserts or moves a contract. Returns `Some(is_new)`, or `None` when nothing changed.
+    pub async fn upsert_contract(
+        &self,
+        id: String,
+        kind: ContractKind,
+        owner: String,
+        params: serde_json::Value,
+        outpoint: String,
+    ) -> Option<bool> {
+        let mut data = self.data.write().await;
+        let existing = data.contracts.get(&id);
+        if existing.is_some_and(|c| c.outpoint == outpoint) {
+            return None;
+        }
+        let is_new = existing.is_none();
+        let registered_at = existing.map_or_else(now, |c| c.registered_at);
+        let entry = ContractEntry {
+            id: id.clone(),
+            kind,
+            owner,
+            params,
+            outpoint,
+            registered_at,
+            updated_at: now(),
+        };
+        data.contracts.insert(id, entry);
+        self.persist(&data);
+        Some(is_new)
+    }
+
+    pub async fn contracts(&self) -> Vec<ContractEntry> {
+        let mut list: Vec<_> = self.data.read().await.contracts.values().cloned().collect();
+        list.sort_by_key(|c| c.registered_at);
         list
     }
 

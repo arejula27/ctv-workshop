@@ -51,6 +51,14 @@ pub enum Event {
         delay: u16,
         outpoint: String,
     },
+    ContractRegistered {
+        kind: crate::registry::ContractKind,
+        owner: String,
+        amount_sat: u64,
+        id: String,
+        /// True when an existing contract moved (an inheritance's "I'm alive").
+        renewed: bool,
+    },
     Activity {
         who: String,
         kind: ActivityKind,
@@ -72,6 +80,11 @@ pub enum ActivityKind {
     VaultWithdraw,
     TheftStart,
     TheftSuccess,
+    InheritanceKeepAlive,
+    InheritanceWithdraw,
+    InheritanceClaim,
+    SubscriptionPay,
+    SubscriptionCancel,
 }
 
 impl Event {

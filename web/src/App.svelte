@@ -8,6 +8,8 @@
   import WalletPage from './routes/Wallet.svelte'
   import VaultPage from './routes/Vault.svelte'
   import Screen from './routes/Screen.svelte'
+  import Herencia from './routes/Herencia.svelte'
+  import Suscripcion from './routes/Suscripcion.svelte'
   import Admin from './routes/Admin.svelte'
 
   let loaded = $state(false)
@@ -44,6 +46,8 @@
   const links = [
     { path: '/wallet', label: 'Cartera' },
     { path: '/vault', label: 'Vault' },
+    { path: '/herencia', label: 'Herencia' },
+    { path: '/suscripcion', label: 'Suscripción' },
   ]
 </script>
 
@@ -80,6 +84,10 @@
   <main>
     {#if route.path === '/vault'}
       <VaultPage />
+    {:else if route.path === '/herencia'}
+      <Herencia />
+    {:else if route.path === '/suscripcion'}
+      <Suscripcion />
     {:else}
       <WalletPage />
     {/if}
@@ -102,7 +110,8 @@
   .clock { font-variant-numeric: tabular-nums; font-weight: 600; display: flex; flex-wrap: wrap; gap: 0 0.75rem; justify-content: flex-end; }
   .date { color: var(--fg); }
   .clock.off { color: var(--danger); }
-  nav { display: flex; gap: 0.25rem; padding: 0.5rem 1rem 0; max-width: 44rem; margin: 0 auto; }
+  nav { display: flex; gap: 0.25rem; padding: 0.5rem 1rem 0; max-width: 44rem; margin: 0 auto; overflow-x: auto; }
+  nav a { white-space: nowrap; }
   nav a {
     padding: 0.4rem 0.9rem;
     border-radius: 999px;

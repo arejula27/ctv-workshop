@@ -19,6 +19,14 @@ export type FeedEvent =
   | { type: 'participant_joined'; name: string }
   | { type: 'vault_registered'; owner: string; amount_sat: number; delay: number; outpoint: string }
   | {
+      type: 'contract_registered'
+      kind: import('./api').ContractKind
+      owner: string
+      amount_sat: number
+      id: string
+      renewed: boolean
+    }
+  | {
       type: 'activity'
       who: string
       kind: import('./api').ActivityKind

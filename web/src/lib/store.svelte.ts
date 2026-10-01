@@ -1,7 +1,13 @@
 // App state shared by every page. Persisted bits live in localStorage (test coins only).
 import { subscribe, type FeedEvent, type MinerSettings } from './events'
-import { joinRoom, registerVault } from './api'
-import { walletInfo, type VaultParams, type WalletInfo } from './core'
+import { joinRoom, registerContract, registerVault, type ContractKind } from './api'
+import {
+  walletInfo,
+  type InheritanceParams,
+  type SubscriptionParams,
+  type VaultParams,
+  type WalletInfo,
+} from './core'
 import * as esplora from './esplora'
 
 function load<T>(key: string, fallback: T): T {
@@ -50,6 +56,11 @@ export function initWallet() {
           .map((v) => registerVault(name, v.params, v.outpoint)),
       ),
     )
+    .then(() =>
+      Promise.allSettled(
+        contracts.list.map((c) => registerContract(c.id, c.kind, name, c.params, c.outpoint)),
+      ),
+    )
     .catch(() => {})
 }
 
@@ -66,6 +77,8 @@ export const chain = $state({
   feed: [] as FeedEvent[],
   /** Bumped when someone registers a vault. */
   vaultsTick: 0,
+  /** Bumped when an inheritance or subscription is registered or moves. */
+  contractsTick: 0,
   /** Simulated calendar (see Status). */
   simEpoch: 0,
   simBlock: 600,
@@ -113,6 +126,7 @@ export function startChain() {
       if (e.type !== 'hello' && e.type !== 'block') {
         chain.feed = [e, ...chain.feed].slice(0, FEED_LEN)
         if (e.type === 'vault_registered') chain.vaultsTick++
+        if (e.type === 'contract_registered') chain.contractsTick++
       }
     },
     (open) => (chain.connected = open),
@@ -172,3 +186,26 @@ export function removeVault(id: string) {
   vaults.list = vaults.list.filter((v) => v.id !== id)
   save('ctv.vaults', vaults.list)
 }
+
+// ---------- inheritances and subscriptions we own ----------
+
+export type SavedContract =
+  | { id: string; kind: 'inheritance'; params: InheritanceParams; outpoint: string; createdAt: number }
+  | { id: string; kind: 'subscription'; params: SubscriptionParams; outpoint: string; createdAt: number }
+
+export const contracts = $state<{ list: SavedContract[] }>({
+  list: load<SavedContract[]>('ctv.contracts', []),
+})
+
+/** Insert or update by id (an inheritance's "I'm alive" moves it). */
+export function saveContract(c: SavedContract) {
+  contracts.list = [c, ...contracts.list.filter((x) => x.id !== c.id)]
+  save('ctv.contracts', contracts.list)
+}
+
+export function removeContract(id: string) {
+  contracts.list = contracts.list.filter((c) => c.id !== id)
+  save('ctv.contracts', contracts.list)
+}
+
+export type { ContractKind }

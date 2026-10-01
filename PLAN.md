@@ -241,7 +241,7 @@ Atribución en `vendor-notes/` y en la cabecera de cada archivo copiado.
 
 ---
 
-## 8. Estado (2026-10-01, fin de la sesión)
+## 8. Estado (2026-10-02)
 
 | Fase | Estado |
 |---|---|
@@ -251,7 +251,8 @@ Atribución en `vendor-notes/` y en la cabecera de cada archivo copiado.
 | F3 | ✅ `ctv-core`: hash CTV, taproot, motor de árbol, vault. Tests unitarios + integración contra el stack (4 caminos del vault) |
 | F4 | ✅ WASM + web del vault. Partida completa (dueña + ladrona) verificada con dos navegadores headless |
 | F5 | ✅ Sala (registro de participantes y vaults), `/screen` para el proyector, `/admin` para el presentador |
-| F6 | ⏭ Siguiente |
+| F6 | ✅ Herencia y suscripción cancelable: contratos, tests de regtest, wasm, páginas, registro en la sala |
+| F7 | ⏭ Siguiente |
 
 ### F3: resultado
 - `ctv.rs`: `template_hash` BIP-119 completo; pasa **todos** los vectores oficiales.
@@ -305,27 +306,42 @@ Atribución en `vendor-notes/` y en la cabecera de cada archivo copiado.
   `/screen`. Nombres aleatorios por ejecución (el feed guarda histórico).
 - Decisión: **wallet propia, sin bdk** (confirmado).
 
-### Extra tras F5 (sin commit al cerrar la sesión del 2026-10-01)
-- **Calendario simulado**: la hora real de los bloques no sirve para ver un salto (regtest pone la hora del reloj),
-  así que la fecha se calcula a **10 min por bloque**, como en Bitcoin: `fecha(h) = time(bloque 1) + (h-1)·600 s`.
-  El server lo expone en `status`/`hello` (`sim_epoch_s`, `sim_block_s`; `SIM_BLOCK_S` configurable). Nace y muere
-  con la cadena (`reset.sh` empieza calendario nuevo).
-- Se ve en la cabecera de todas las páginas (📅 7 oct 2026, 05:40), en `/screen`, en la espera del vault
-  ("= 1 h 40 min en Bitcoin real") y en el temporizador ("se abre el 8 oct 2026, 05:40").
-- Test UI: salto de 144 bloques desde `/admin` → la cabecera avanza exactamente un día.
+### Calendario simulado (commit `3f62bb7`)
+- La fecha se calcula a **10 min por bloque** (`fecha(h) = time(bloque 1) + (h-1)·600 s`), porque regtest pone la
+  hora del reloj y un salto no movería la fecha real. Cabecera, `/screen`, esperas ("= 1 h 40 min en Bitcoin real")
+  y temporizadores ("se abre el 8 oct 2026, 05:40"). Test: +144 bloques = +1 día.
 
-### Para retomar
-1. Revisar y hacer commit del calendario simulado (`git status`: server `chain.rs`/`api.rs`/`config.rs`, web header/screen/vault, test UI).
-2. Levantar y comprobar: `docker compose -f infra/docker-compose.yml --env-file infra/.env up -d`, luego
-   `infra/scripts/smoke.sh`, `infra/scripts/test-regtest.sh`, `infra/scripts/test-ui.sh`.
-   Si los puertos dan "connection reset" tras reiniciar Docker Desktop: `up -d --force-recreate`.
-3. Empezar F6.
+### F6: resultado
+- `contracts/inheritance.rs`: `[dueña CHECKSIG] | [<N> CSV DROP <H(reparto)> CTV]`. Reparto proporcional (resto de
+  redondeo al primero). "Sigo viva" = gastar la hoja de la dueña a una herencia nueva idéntica (importe − fee) →
+  el CSV vuelve a 0. También "recuperar todo".
+- `contracts/subscription.rs`: K tramos construidos del último al primero; `tramo_k = (K−k+1)·(X+fee)`, cada
+  tx paga exactamente una fee. `[<every> CSV DROP <H(pago_k)> CTV] | [pagador CHECKSIG]`. Cualquiera empuja un pago.
+- Tests regtest: herederos esperan / "sigo viva" reinicia / reparto; dueña recupera; cada pago espera su turno;
+  cancelar devuelve el resto y bloquea pagos futuros. `tests/common/` comparte el cliente del nodo.
+- **`infra/scripts/native-regtest.sh start|test|stop`**: Inquisition nativo en `~/.cache` (checksum verificado,
+  puerto 28543) para probar contratos sin Docker.
+- Server: `POST/GET /api/contracts` (id estable + outpoint que puede moverse), validación por tipo con `ctv-core`
+  y comprobación en cadena; `/api/participants` incluye la dirección; eventos `contract_registered` y actividades
+  nuevas (sigo viva, recuperar, reparto, pago, cancelar) en el feed.
+- Web: `/herencia` y `/suscripcion` con el mismo lenguaje (izquierda 🔥 tú / derecha 🧊 los demás).
+  Herencia: elegir herederos de la sala, cuenta atrás con fecha, "💓 Sigo viva", los herederos ven su parte y ejecutan el reparto.
+  Suscripción: un punto por pago (✓ / actual / ✗), el receptor **cobra automáticamente** cuando vence (reintenta en el
+  siguiente bloque si falla, sin mostrar errores de intentos automáticos), el pagador cancela.
+  Errores del core traducidos a lenguaje llano (`friendly()`).
+- `test-ui.sh` ejecuta todos los `web/e2e/*.mjs` (o `TESTS=...`); `contracts-game.mjs` juega herencia + suscripción
+  y guarda capturas de todos los navegadores si algo falla.
 
-### F6: siguiente — herencia y suscripción
-1. `contracts/inheritance.rs`: `[dueño CHECKSIG] | [<N> CSV DROP <H(reparto)> CTV]`; "sigo vivo" = el dueño gasta a la misma estructura.
-2. `contracts/subscription.rs`: cadena de K tramos construida del último al primero; `[<N> CSV DROP <H(pago_k)> CTV] | [pagador CHECKSIG]`.
-3. Tests de regtest de todos los caminos, bindings wasm, páginas `/herencia` y `/suscripcion` con el mismo
-   lenguaje visual (reutilizando `TreeView`, `treeStatus`, tarjeta partida) y su reflejo en `/screen`.
+### Pendiente menor
+- `/screen`: el tablero solo muestra vaults (herencias y suscripciones salen en el feed). Añadirlas si da tiempo.
+
+### F7: siguiente — payment pool
+1. Portar `pools.rs` de stutxo (MIT) a `contracts/pool.rs` sobre el motor `tree.rs`, añadiendo
+   `<pk_i> CHECKSIGVERIFY` a cada hoja de salida. Mesas de ≤ 6 (≤ 64 árboles, instantáneo en wasm).
+2. Coordinador en el server: crear mesa, unirse (nombre, pubkey, dirección de salida), cerrar → todos calculan
+   el mismo árbol. Financiación v1: el faucet financia el pool de la mesa.
+3. Página `/pool`: la mesa, mi camino de salida, "Salir del pool" en cualquier orden.
+4. Tests de regtest (salidas en distinto orden, nadie puede sacar a otro) y test UI con 3+ navegadores.
 
 ### Notas de entorno
 - En este Docker hay otros stacks regtest (btcpay, arkd, mempool…) usando 18443, 3000, 50001… → nuestro RPC de depuración está en 18543.

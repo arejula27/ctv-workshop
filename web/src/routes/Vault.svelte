@@ -2,6 +2,7 @@
   import { secretPubkey, vault as core, walletSend, type VaultParams } from '../lib/core'
   import * as esplora from '../lib/esplora'
   import { faucet, listVaults, registerVault } from '../lib/api'
+  import { friendly } from '../lib/act'
   import {
     addVault,
     balances,
@@ -49,7 +50,7 @@
       registerVault(me.id.name, params, outpoint).catch((e) => (error = `No se pudo anunciar el vault: ${e.message}`))
       refreshBalances().catch(() => {})
     } catch (e) {
-      error = (e as Error).message
+      error = friendly(e)
     } finally {
       busy = false
     }

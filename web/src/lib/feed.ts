@@ -16,8 +16,24 @@ export function describe(e: FeedEvent): { icon: string; text: string; tone?: 'ho
       return e.settings.paused
         ? { icon: '⏸', text: 'Reloj en pausa' }
         : { icon: '▶', text: `Un bloque cada ${e.settings.interval_s} s` }
+    case 'contract_registered':
+      if (e.kind === 'subscription')
+        return { icon: '📆', text: `${e.owner} ha creado una suscripción de ${sats(e.amount_sat)}` }
+      return e.renewed
+        ? { icon: '💓', text: `${e.owner} sigue viva: su herencia vuelve a empezar` }
+        : { icon: '📜', text: `${e.owner} ha dejado una herencia de ${sats(e.amount_sat)}` }
     case 'activity':
       switch (e.kind) {
+        case 'inheritance_keep_alive':
+          return { icon: '💓', text: `${e.who} ha dado señales de vida` }
+        case 'inheritance_withdraw':
+          return { icon: '↩', text: `${e.who} ha recuperado su herencia` }
+        case 'inheritance_claim':
+          return { icon: '📜', text: `Se ha repartido la herencia de ${e.owner}`, tone: 'cold' }
+        case 'subscription_pay':
+          return { icon: '💸', text: `Pago de ${sats(e.amount_sat)} de la suscripción de ${e.owner}`, tone: 'cold' }
+        case 'subscription_cancel':
+          return { icon: '✋', text: `${e.who} ha cancelado su suscripción`, tone: 'hot' }
         case 'vault_start':
           return { icon: '⏱', text: `${e.who} ha iniciado un retiro de su vault`, tone: 'hot' }
         case 'vault_to_cold':

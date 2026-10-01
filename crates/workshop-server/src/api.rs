@@ -55,6 +55,7 @@ pub fn router(state: Arc<AppState>) -> Router {
         .route("/api/faucet", post(faucet))
         .route("/api/participants", get(room::participants).post(room::join))
         .route("/api/vaults", get(room::vaults).post(room::register_vault))
+        .route("/api/contracts", get(room::contracts).post(room::register_contract))
         .route("/api/activity", post(room::activity))
         .nest("/api/admin", admin)
         .route("/ws", get(events::ws_handler))

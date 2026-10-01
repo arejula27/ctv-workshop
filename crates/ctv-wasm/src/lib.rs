@@ -12,7 +12,11 @@ use bitcoin::{
     consensus::encode::serialize_hex, hex::FromHex, key::Keypair, secp256k1::SecretKey,
 };
 use ctv_core::{
-    contracts::vault::{Vault, VaultParams},
+    contracts::{
+        inheritance::{Heir, Inheritance, InheritanceParams},
+        subscription::{Subscription, SubscriptionParams},
+        vault::{Vault, VaultParams},
+    },
     taproot::SECP,
     wallet::{Role, Utxo, Wallet},
 };
@@ -35,6 +39,7 @@ struct WalletInfo {
     main_address: String,
     hot_address: String,
     cold_address: String,
+    main_pubkey: String,
     hot_pubkey: String,
     cold_pubkey: String,
 }
@@ -46,6 +51,7 @@ pub fn wallet_info(seed_hex: &str) -> JsResult {
         main_address: w.address(Role::Main, NETWORK).to_string(),
         hot_address: w.address(Role::Hot, NETWORK).to_string(),
         cold_address: w.address(Role::Cold, NETWORK).to_string(),
+        main_pubkey: w.keypair(Role::Main).x_only_public_key().0.to_string(),
         hot_pubkey: w.keypair(Role::Hot).x_only_public_key().0.to_string(),
         cold_pubkey: w.keypair(Role::Cold).x_only_public_key().0.to_string(),
     })
@@ -166,6 +172,165 @@ pub fn vault_withdraw_hot(
     let unvault = v.unvault_outpoint(outpoint(vault_outpoint)?);
     let tx =
         v.withdraw_hot(unvault, address(to_address)?, &keypair(hot_secret_hex)?).map_err(err)?;
+    signed(tx)
+}
+
+// ---------- inheritance ----------
+
+#[derive(Clone, Serialize, Deserialize)]
+struct JsHeir {
+    label: String,
+    address: String,
+    share: u32,
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+struct JsInheritanceParams {
+    amount_sat: u64,
+    owner_pubkey: String,
+    heirs: Vec<JsHeir>,
+    delay: u16,
+    fee_sat: u64,
+}
+
+fn inheritance(params: JsValue) -> Result<Inheritance, JsError> {
+    let p: JsInheritanceParams = from_js(params)?;
+    let heirs = p
+        .heirs
+        .iter()
+        .map(|h| {
+            Ok(Heir { label: h.label.clone(), script_pubkey: address(&h.address)?, share: h.share })
+        })
+        .collect::<Result<_, JsError>>()?;
+    Inheritance::new(InheritanceParams {
+        amount: Amount::from_sat(p.amount_sat),
+        owner: xonly(&p.owner_pubkey)?,
+        heirs,
+        delay: p.delay,
+        fee: Amount::from_sat(p.fee_sat),
+    })
+    .map_err(err)
+}
+
+#[wasm_bindgen]
+pub fn inheritance_address(params: JsValue) -> Result<String, JsError> {
+    Ok(inheritance(params)?.address(NETWORK).to_string())
+}
+
+#[wasm_bindgen]
+pub fn inheritance_view(params: JsValue, outpoint_str: Option<String>) -> JsResult {
+    let i = inheritance(params)?;
+    let op = outpoint_str.as_deref().map(outpoint).transpose()?;
+    to_js(&i.contract.view(NETWORK, op))
+}
+
+#[derive(Serialize)]
+struct KeepAlive {
+    hex: String,
+    txid: String,
+    /// Parameters of the renewed inheritance, at output 0 of `txid`.
+    next_params: JsInheritanceParams,
+}
+
+/// "I'm alive": moves the coins into a fresh inheritance (same heirs).
+#[wasm_bindgen]
+pub fn inheritance_keep_alive(params: JsValue, outpoint_str: &str, seed_hex: &str) -> JsResult {
+    let mut p: JsInheritanceParams = from_js(params.clone())?;
+    let i = inheritance(params)?;
+    let (tx, next) = i
+        .keep_alive(outpoint(outpoint_str)?, &wallet(seed_hex)?.keypair(Role::Main))
+        .map_err(err)?;
+    p.amount_sat = next.params.amount.to_sat();
+    to_js(&KeepAlive {
+        hex: serialize_hex(&tx),
+        txid: tx.compute_txid().to_string(),
+        next_params: p,
+    })
+}
+
+#[wasm_bindgen]
+pub fn inheritance_withdraw(
+    params: JsValue,
+    outpoint_str: &str,
+    seed_hex: &str,
+    to_address: &str,
+) -> JsResult {
+    let i = inheritance(params)?;
+    let tx = i
+        .withdraw(
+            outpoint(outpoint_str)?,
+            address(to_address)?,
+            &wallet(seed_hex)?.keypair(Role::Main),
+        )
+        .map_err(err)?;
+    signed(tx)
+}
+
+#[wasm_bindgen]
+pub fn inheritance_claim(params: JsValue, outpoint_str: &str) -> JsResult {
+    signed(inheritance(params)?.claim(outpoint(outpoint_str)?).map_err(err)?)
+}
+
+// ---------- subscription ----------
+
+#[derive(Clone, Serialize, Deserialize)]
+struct JsSubscriptionParams {
+    payment_sat: u64,
+    count: u16,
+    every: u16,
+    receiver_address: String,
+    payer_pubkey: String,
+    fee_sat: u64,
+}
+
+fn subscription(params: JsValue) -> Result<Subscription, JsError> {
+    let p: JsSubscriptionParams = from_js(params)?;
+    Subscription::new(SubscriptionParams {
+        payment: Amount::from_sat(p.payment_sat),
+        count: p.count,
+        every: p.every,
+        receiver: address(&p.receiver_address)?,
+        payer: xonly(&p.payer_pubkey)?,
+        fee: Amount::from_sat(p.fee_sat),
+    })
+    .map_err(err)
+}
+
+/// Total to fund: every payment plus one fee per transaction.
+#[wasm_bindgen]
+pub fn subscription_amount(params: JsValue) -> Result<u64, JsError> {
+    Ok(subscription(params)?.amount().to_sat())
+}
+
+#[wasm_bindgen]
+pub fn subscription_address(params: JsValue) -> Result<String, JsError> {
+    Ok(subscription(params)?.address(NETWORK).to_string())
+}
+
+#[wasm_bindgen]
+pub fn subscription_view(params: JsValue, funding: Option<String>) -> JsResult {
+    let s = subscription(params)?;
+    let op = funding.as_deref().map(outpoint).transpose()?;
+    to_js(&s.contract.view(NETWORK, op))
+}
+
+#[wasm_bindgen]
+pub fn subscription_pay(params: JsValue, k: u16, funding: &str) -> JsResult {
+    signed(subscription(params)?.pay(k, outpoint(funding)?).map_err(err)?)
+}
+
+#[wasm_bindgen]
+pub fn subscription_cancel(
+    params: JsValue,
+    k: u16,
+    funding: &str,
+    seed_hex: &str,
+    to_address: &str,
+) -> JsResult {
+    let s = subscription(params)?;
+    let tx = s
+        .cancel(k, outpoint(funding)?, address(to_address)?, &wallet(seed_hex)?.keypair(Role::Main))
+        .map_err(err)?;
     signed(tx)
 }
 

@@ -7,6 +7,7 @@ export type WalletInfo = {
   main_address: string
   hot_address: string
   cold_address: string
+  main_pubkey: string
   hot_pubkey: string
   cold_pubkey: string
 }
@@ -61,4 +62,46 @@ export const vault = {
   panic: (p: VaultParams, op: string): SignedTx => wasm.vault_panic(p, op),
   withdrawHot: (p: VaultParams, op: string, to: string, hotSecret: string): SignedTx =>
     wasm.vault_withdraw_hot(p, op, to, hotSecret),
+}
+
+// ---------- inheritance ----------
+
+export type Heir = { label: string; address: string; share: number }
+export type InheritanceParams = {
+  amount_sat: number
+  owner_pubkey: string
+  heirs: Heir[]
+  delay: number
+  fee_sat: number
+}
+
+export const inheritance = {
+  address: (p: InheritanceParams): string => wasm.inheritance_address(p),
+  view: (p: InheritanceParams, op?: string): ContractView => wasm.inheritance_view(p, op ?? null),
+  /** "I'm alive": the renewed inheritance sits at `${txid}:0` with `next_params`. */
+  keepAlive: (p: InheritanceParams, op: string, seed: string): SignedTx & { next_params: InheritanceParams } =>
+    wasm.inheritance_keep_alive(p, op, seed),
+  withdraw: (p: InheritanceParams, op: string, seed: string, to: string): SignedTx =>
+    wasm.inheritance_withdraw(p, op, seed, to),
+  claim: (p: InheritanceParams, op: string): SignedTx => wasm.inheritance_claim(p, op),
+}
+
+// ---------- subscription ----------
+
+export type SubscriptionParams = {
+  payment_sat: number
+  count: number
+  every: number
+  receiver_address: string
+  payer_pubkey: string
+  fee_sat: number
+}
+
+export const subscription = {
+  amount: (p: SubscriptionParams): number => Number(wasm.subscription_amount(p)),
+  address: (p: SubscriptionParams): string => wasm.subscription_address(p),
+  view: (p: SubscriptionParams, funding?: string): ContractView => wasm.subscription_view(p, funding ?? null),
+  pay: (p: SubscriptionParams, k: number, funding: string): SignedTx => wasm.subscription_pay(p, k, funding),
+  cancel: (p: SubscriptionParams, k: number, funding: string, seed: string, to: string): SignedTx =>
+    wasm.subscription_cancel(p, k, funding, seed, to),
 }

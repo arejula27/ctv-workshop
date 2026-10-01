@@ -1,5 +1,5 @@
 // workshop-server API.
-import type { VaultParams } from './core'
+import type { InheritanceParams, SubscriptionParams, VaultParams } from './core'
 import type { MinerSettings } from './events'
 
 async function call<T>(method: string, path: string, body?: unknown, token?: string): Promise<T> {
@@ -26,13 +26,35 @@ export type ActivityKind =
   | 'vault_withdraw'
   | 'theft_start'
   | 'theft_success'
+  | 'inheritance_keep_alive'
+  | 'inheritance_withdraw'
+  | 'inheritance_claim'
+  | 'subscription_pay'
+  | 'subscription_cancel'
 
 export const joinRoom = (name: string, address: string) =>
   call('POST', '/api/participants', { name, address })
-export const participants = () => call<{ name: string }[]>('GET', '/api/participants')
+export type Participant = { name: string; address: string }
+export const participants = () => call<Participant[]>('GET', '/api/participants')
 export const registerVault = (owner: string, params: VaultParams, outpoint: string) =>
   call('POST', '/api/vaults', { owner, params, outpoint })
 export const listVaults = () => call<VaultEntry[]>('GET', '/api/vaults')
+export type ContractKind = 'inheritance' | 'subscription'
+export type ContractEntry =
+  | { id: string; kind: 'inheritance'; owner: string; params: InheritanceParams; outpoint: string; registered_at: number }
+  | { id: string; kind: 'subscription'; owner: string; params: SubscriptionParams; outpoint: string; registered_at: number }
+
+/** Registers (or moves, for the same `id`) an inheritance or subscription. */
+export const registerContract = (
+  id: string,
+  kind: ContractKind,
+  owner: string,
+  params: InheritanceParams | SubscriptionParams,
+  outpoint: string,
+) => call('POST', '/api/contracts', { id, kind, owner, params, outpoint })
+export const listContracts = () => call<ContractEntry[]>('GET', '/api/contracts')
+
+/** `outpoint`: a vault's funding outpoint, or a contract's id. */
 export const reportActivity = (who: string, kind: ActivityKind, outpoint: string, txid: string) =>
   call('POST', '/api/activity', { who, kind, outpoint, txid })
 
