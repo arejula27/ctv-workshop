@@ -1,6 +1,6 @@
 // workshop-server API.
 import type { InheritanceParams, PoolMember, SubscriptionParams, VaultParams } from './core'
-import type { MinerSettings } from './events'
+import type { Demo, MinerSettings } from './events'
 
 async function call<T>(method: string, path: string, body?: unknown, token?: string): Promise<T> {
   const headers: Record<string, string> = {}
@@ -85,4 +85,5 @@ export const admin = {
   jump: (token: string, blocks: number) => call<{ height: number }>('POST', '/api/admin/jump', { blocks }, token),
   miner: (token: string, settings: Partial<MinerSettings>) =>
     call<MinerSettings>('PUT', '/api/admin/miner', settings, token),
+  demo: (token: string, demo: Demo) => call<{ demo: Demo }>('PUT', '/api/admin/demo', { demo }, token),
 }

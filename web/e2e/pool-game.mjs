@@ -8,6 +8,9 @@ const mine = async (n = 1) => {
 }
 const tag = Math.random().toString(36).slice(2, 6)
 const ANA = `Ana ${tag}`, BEA = `Bea ${tag}`, CARLA = `Carla ${tag}`, TABLE = `Mesa ${tag}`
+const setDemo = (demo) =>
+  fetch(`${BASE}/api/admin/demo`, { method: 'PUT', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${process.env.ADMIN_TOKEN}` }, body: JSON.stringify({ demo }) })
+await setDemo('pool')
 const browser = await chromium.launch()
 const ctx = () => browser.newContext({ viewport: { width: 1100, height: 900 } })
 const [ana, bea, carla] = await Promise.all([1, 2, 3].map(async () => (await ctx()).newPage()))
@@ -54,6 +57,11 @@ try {
   await mine(1)
   for (const p of all) await p.getByText('El pool se ha disuelto').waitFor({ timeout: 15000 })
   await carla.locator('.chip.gone', { hasText: CARLA }).getByText('100.000 sats').waitFor()
+  const screen = await (await browser.newContext({ viewport: { width: 1600, height: 900 } })).newPage()
+  await screen.goto(BASE + '/screen')
+  await screen.locator('.tile', { hasText: TABLE }).getByText('disuelto').waitFor({ timeout: 15000 })
+  await shot(screen, 'p3-screen-pool')
+  console.log('✓ the projector shows the pool board')
   await carla.getByRole('button', { name: /Ver árbol/ }).click()
   await shot(carla, 'p2-pool-dissolved')
   console.log('✓ Ana left: the pool dissolved and Carla (last) got her full share')

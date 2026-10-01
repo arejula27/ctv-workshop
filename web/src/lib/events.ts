@@ -1,6 +1,9 @@
 // Mirror of workshop-server's `Event` (crates/workshop-server/src/events.rs).
 export type MinerSettings = { paused: boolean; interval_s: number }
 
+/** The demo the room is playing (they run one after another). */
+export type Demo = 'vault' | 'inheritance' | 'subscription' | 'pool'
+
 export type Status = {
   network: string
   height: number
@@ -10,6 +13,7 @@ export type Status = {
   /** Simulated calendar: block h happens at sim_epoch_s + (h - 1) * sim_block_s. */
   sim_epoch_s: number
   sim_block_s: number
+  demo: Demo
 }
 
 export type FeedEvent =
@@ -17,6 +21,7 @@ export type FeedEvent =
   | { type: 'miner'; settings: MinerSettings }
   | { type: 'jump'; blocks: number; height: number }
   | { type: 'participant_joined'; name: string }
+  | { type: 'demo_changed'; demo: Demo }
   | { type: 'vault_registered'; owner: string; amount_sat: number; delay: number; outpoint: string }
   | {
       type: 'contract_registered'

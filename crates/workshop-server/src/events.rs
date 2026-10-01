@@ -45,6 +45,9 @@ pub enum Event {
     ParticipantJoined {
         name: String,
     },
+    DemoChanged {
+        demo: crate::registry::Demo,
+    },
     VaultRegistered {
         owner: String,
         amount_sat: u64,

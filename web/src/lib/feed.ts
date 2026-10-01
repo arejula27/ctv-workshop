@@ -1,11 +1,39 @@
 // Feed events as short sentences for the room (and the projector).
-import type { FeedEvent } from './events'
+import type { Demo, FeedEvent } from './events'
 import { sats } from './format'
+
+export const DEMOS: Record<Demo, { title: string; icon: string; path: string }> = {
+  vault: { title: 'Vault', icon: '🔒', path: '/vault' },
+  inheritance: { title: 'Herencia', icon: '📜', path: '/herencia' },
+  subscription: { title: 'Suscripción', icon: '📆', path: '/suscripcion' },
+  pool: { title: 'Payment pool', icon: '🏊', path: '/pool' },
+}
+
+/** Which demo a feed event belongs to; null for room-wide events (clock, people joining). */
+export function demoOf(e: FeedEvent): Demo | null {
+  switch (e.type) {
+    case 'vault_registered':
+      return 'vault'
+    case 'contract_registered':
+      return e.kind
+    case 'pool_updated':
+      return 'pool'
+    case 'activity':
+      if (e.kind.startsWith('vault_') || e.kind.startsWith('theft_')) return 'vault'
+      if (e.kind.startsWith('inheritance_')) return 'inheritance'
+      if (e.kind.startsWith('subscription_')) return 'subscription'
+      return 'pool'
+    default:
+      return null
+  }
+}
 
 export function describe(e: FeedEvent): { icon: string; text: string; tone?: 'hot' | 'cold' | 'thief' } {
   switch (e.type) {
     case 'participant_joined':
       return { icon: '👋', text: `${e.name} se ha unido` }
+    case 'demo_changed':
+      return { icon: DEMOS[e.demo].icon, text: `Ahora jugamos: ${DEMOS[e.demo].title}` }
     case 'faucet':
       return { icon: '🚰', text: `Alguien ha pedido ${sats(e.amount_sat)} al faucet` }
     case 'vault_registered':

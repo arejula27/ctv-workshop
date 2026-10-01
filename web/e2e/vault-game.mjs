@@ -10,6 +10,9 @@ const mine = async (n = 1) => {
 // Unique names: the room feed keeps history across runs.
 const tag = Math.random().toString(36).slice(2, 6)
 const ANA = `Ana ${tag}`, BEA = `Bea ${tag}`
+const setDemo = (demo) =>
+  fetch(`${BASE}/api/admin/demo`, { method: 'PUT', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${process.env.ADMIN_TOKEN}` }, body: JSON.stringify({ demo }) })
+await setDemo('vault')
 const browser = await chromium.launch()
 const ctx = () => browser.newContext({ viewport: { width: 1100, height: 900 } })
 const ana = await (await ctx()).newPage(), bea = await (await ctx()).newPage()
@@ -70,7 +73,7 @@ const screen = await (await browser.newContext({ viewport: { width: 1600, height
 await screen.goto(BASE + '/screen')
 await screen.getByText(`¡${ANA} ha pulsado el pánico!`).waitFor({ timeout: 15000 })
 await screen.getByText(`¡${BEA} intenta robar el vault de ${ANA}!`).first().waitFor()
-await screen.locator('.vault', { hasText: ANA }).getByText('salvado con el pánico').waitFor({ timeout: 15000 })
+await screen.locator('.tile', { hasText: ANA }).getByText('salvado con el pánico').waitFor({ timeout: 15000 })
 console.log('✓ /screen shows the board and the feed')
 
 // Round 2: Ana doesn't react, Bea gets away with it. The presenter jumps the clock from /admin.
@@ -96,7 +99,7 @@ await round2.getByRole('button', { name: 'Llevármelo' }).click()
 await round2.getByText('¡Robo completado!').waitFor({ timeout: 15000 })
 await ana.getByText('Te han robado').waitFor({ timeout: 15000 })
 await screen.getByText(`${BEA} ha robado 300.000 sats a ${ANA}`).waitFor({ timeout: 15000 })
-await screen.locator('.vault', { hasText: ANA }).getByText('¡robado!').waitFor({ timeout: 15000 })
+await screen.locator('.tile', { hasText: ANA }).getByText('¡robado!').waitFor({ timeout: 15000 })
 await shot(screen, '8-screen')
 await shot(ana, '9-owner-robbed')
 console.log('✓ round 2: admin jump, theft succeeds, owner and screen see it')

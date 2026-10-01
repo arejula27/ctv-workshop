@@ -92,6 +92,17 @@ pub struct PoolTable {
     pub created_at: u64,
 }
 
+/// The demo the whole room is playing right now (they run one after another).
+#[derive(Clone, Copy, Debug, Default, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "snake_case")]
+pub enum Demo {
+    #[default]
+    Vault,
+    Inheritance,
+    Subscription,
+    Pool,
+}
+
 #[derive(Default, Serialize, Deserialize)]
 struct Data {
     /// Keyed by the participant's main address.
@@ -103,6 +114,8 @@ struct Data {
     contracts: BTreeMap<String, ContractEntry>,
     #[serde(default)]
     pools: BTreeMap<String, PoolTable>,
+    #[serde(default)]
+    demo: Demo,
 }
 
 pub struct Registry {
@@ -190,6 +203,16 @@ impl Registry {
         let mut list: Vec<_> = self.data.read().await.contracts.values().cloned().collect();
         list.sort_by_key(|c| c.registered_at);
         list
+    }
+
+    pub async fn demo(&self) -> Demo {
+        self.data.read().await.demo
+    }
+
+    pub async fn set_demo(&self, demo: Demo) {
+        let mut data = self.data.write().await;
+        data.demo = demo;
+        self.persist(&data);
     }
 
     pub async fn pools(&self) -> Vec<PoolTable> {

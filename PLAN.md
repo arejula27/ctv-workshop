@@ -253,7 +253,7 @@ Atribución en `vendor-notes/` y en la cabecera de cada archivo copiado.
 | F5 | ✅ Sala (registro de participantes y vaults), `/screen` para el proyector, `/admin` para el presentador |
 | F6 | ✅ Herencia y suscripción cancelable: contratos, tests de regtest, wasm, páginas, registro en la sala |
 | F7 | ✅ Payment pool: contrato con firma por salida, coordinador de mesas, página, tests |
-| F8 | 🟡 Carga ✅ · imágenes fijadas ✅ · tablero del proyector por decidir |
+| F8 | ✅ Carga · imágenes fijadas · `/screen` sigue la demo actual |
 
 ### F3: resultado
 - `ctv.rs`: `template_hash` BIP-119 completo; pasa **todos** los vectores oficiales.
@@ -356,7 +356,10 @@ Atribución en `vendor-notes/` y en la cabecera de cada archivo copiado.
   Resultado: **0 errores en 32 s**. Picos: bitcoind 89 % de un núcleo y 106 MB; resto < 15 % CPU. API y esplora en
   milisegundos; el faucet tarda 2–4 s con 25 peticiones simultáneas (la wallet de bitcoind las serializa): aceptable.
 - ✅ **Imágenes fijadas por digest** (electrs, esplora, caddy, debian, rust) en el compose y los Dockerfiles.
-- ❓ Tablero de `/screen` con fichas para herencias, suscripciones y mesas (hoy solo vaults): pendiente de decidir.
+- ✅ **Demo actual** (las demos se juegan de una en una, toda la sala a la vez): el presentador la elige en `/admin`
+  (`PUT /api/admin/demo`, persistida en el registro, evento `demo_changed`). `/screen` muestra el título, el
+  tablero de esa demo (fichas de vaults, herencias, suscripciones o mesas, con un `Tile` común) y el feed filtrado
+  (eventos de esa demo + los generales). En la app de cada participante, un ● marca la pestaña de la demo actual.
 - Fuera de alcance (decidido): guion/hoja/slides, despliegue en VPS y ensayo general.
 
 ### Notas de entorno

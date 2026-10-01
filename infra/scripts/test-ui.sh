@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Plays the demos with headless browsers against the running stack.
-# Runs every web/e2e/*.mjs, or only TESTS="contracts-game.mjs".
+# Runs every web/e2e/*-game.mjs, or only TESTS="contracts-game.mjs".
 # Uses the official Playwright image (no system libraries needed on the host).
 # Screenshots land in web/e2e/shots/.
 set -euo pipefail
@@ -13,4 +13,4 @@ mkdir -p web/e2e/shots
 docker run --rm --network ctv-workshop_default -e ADMIN_TOKEN \
   --user "$(id -u):$(id -g)" -e HOME=/tmp -e npm_config_cache=/tmp/.npm \
   -v "$PWD/web/e2e:/work/e2e" -w /work/e2e "mcr.microsoft.com/playwright:v${PW}-noble" \
-  sh -c "npm i --silent --no-audit --no-fund >/dev/null && for t in ${TESTS:-*.mjs}; do echo \"== \$t\"; node \"\$t\" || exit 1; done"
+  sh -c "npm i --silent --no-audit --no-fund >/dev/null && for t in ${TESTS:-*-game.mjs}; do echo \"== \$t\"; node \"\$t\" || exit 1; done"

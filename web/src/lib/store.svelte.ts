@@ -1,5 +1,5 @@
 // App state shared by every page. Persisted bits live in localStorage (test coins only).
-import { subscribe, type FeedEvent, type MinerSettings } from './events'
+import { subscribe, type Demo, type FeedEvent, type MinerSettings } from './events'
 import { joinRoom, registerContract, registerVault, type ContractKind } from './api'
 import {
   walletInfo,
@@ -81,6 +81,8 @@ export const chain = $state({
   contractsTick: 0,
   /** Bumped when a pool table changes. */
   poolsTick: 0,
+  /** The demo the presenter has on screen now. */
+  demo: 'vault' as Demo,
   /** Simulated calendar (see Status). */
   simEpoch: 0,
   simBlock: 600,
@@ -113,6 +115,7 @@ export function startChain() {
           chain.feed = [...e.recent].reverse()
           chain.simEpoch = e.status.sim_epoch_s
           chain.simBlock = e.status.sim_block_s
+          chain.demo = e.status.demo
           chain.tick++
           break
         case 'block':
@@ -123,6 +126,9 @@ export function startChain() {
         case 'miner':
           chain.miner = e.settings
           resetCountdown()
+          break
+        case 'demo_changed':
+          chain.demo = e.demo
           break
       }
       if (e.type !== 'hello' && e.type !== 'block') {

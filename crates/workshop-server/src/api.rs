@@ -15,7 +15,7 @@ use axum::{
 };
 use bitcoin::{Address, Network};
 use serde::{Deserialize, Serialize};
-use serde_json::json;
+use serde_json::{Value, json};
 use tokio::sync::Mutex;
 use tracing::warn;
 
@@ -24,7 +24,7 @@ use crate::{
     config::{Config, MIN_MINER_INTERVAL},
     events::{self, Event},
     pools,
-    registry::Registry,
+    registry::{Demo, Registry},
     room,
 };
 
@@ -48,6 +48,7 @@ pub fn router(state: Arc<AppState>) -> Router {
         .route("/mine", post(mine))
         .route("/jump", post(jump))
         .route("/miner", put(set_miner))
+        .route("/demo", put(set_demo))
         .route_layer(middleware::from_fn_with_state(state.clone(), require_admin));
 
     Router::new()
@@ -113,17 +114,23 @@ pub struct Status {
     /// Simulated calendar: block `h` happens at `sim_epoch_s + (h - 1) * sim_block_s`.
     pub sim_epoch_s: u64,
     pub sim_block_s: u64,
+    /// The demo the room is playing now.
+    pub demo: Demo,
 }
 
 pub async fn status_snapshot(state: &AppState) -> anyhow::Result<Status> {
+    // Await first: a watch borrow can't be held across an await point.
+    let height = state.chain.height().await?;
+    let demo = state.registry.demo().await;
     Ok(Status {
         network: "regtest",
-        height: state.chain.height().await?,
+        height,
         miner: *state.chain.miner.borrow(),
         next_block_in_ms: state.chain.next_block_in_ms(),
         faucet_amount_sat: state.config.faucet_amount.to_sat(),
         sim_epoch_s: state.chain.sim_epoch_s(),
         sim_block_s: state.config.sim_block_s,
+        demo,
     })
 }
 
@@ -254,4 +261,19 @@ async fn set_miner(
     state.chain.miner.send_replace(settings);
     let _ = state.chain.events.send(Event::Miner { settings });
     Ok(Json(settings))
+}
+
+#[derive(Deserialize)]
+struct DemoReq {
+    demo: Demo,
+}
+
+/// Switches the demo shown on `/screen` (and highlighted in everyone's app).
+async fn set_demo(
+    State(state): State<Arc<AppState>>,
+    Json(req): Json<DemoReq>,
+) -> ApiResult<Value> {
+    state.registry.set_demo(req.demo).await;
+    let _ = state.chain.events.send(Event::DemoChanged { demo: req.demo });
+    Ok(Json(json!({ "demo": req.demo })))
 }

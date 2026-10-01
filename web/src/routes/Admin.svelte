@@ -2,6 +2,8 @@
   import { admin, listVaults, participants } from '../lib/api'
   import { chain } from '../lib/store.svelte'
   import { blocksToTime } from '../lib/format'
+  import { DEMOS } from '../lib/feed'
+  import type { Demo } from '../lib/events'
 
   const KEY = 'ctv.admin'
   let token = $state(readToken())
@@ -55,6 +57,17 @@
   Token de admin
   <input type="password" bind:value={token} placeholder="ADMIN_TOKEN de infra/.env" autocomplete="off" />
 </label>
+
+<section>
+  <h2>Demo que se juega ahora</h2>
+  <p class="muted">Cambia lo que enseña <code>/screen</code> y marca la pestaña en la app de todo el mundo.</p>
+  <div class="row">
+    {#each Object.entries(DEMOS) as [demo, d]}
+      <button class="secondary" class:on={chain.demo === demo}
+        onclick={() => run(() => admin.demo(token, demo as Demo))} disabled={busy || !token}>{d.icon} {d.title}</button>
+    {/each}
+  </div>
+</section>
 
 <section>
   <h2>Reloj</h2>

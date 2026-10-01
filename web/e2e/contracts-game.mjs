@@ -8,6 +8,8 @@ const mine = async (n = 1) => {
 }
 const tag = Math.random().toString(36).slice(2, 6)
 const ANA = `Ana ${tag}`, BEA = `Bea ${tag}`
+const setDemo = (demo) =>
+  fetch(`${BASE}/api/admin/demo`, { method: 'PUT', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${process.env.ADMIN_TOKEN}` }, body: JSON.stringify({ demo }) })
 const browser = await chromium.launch()
 const ctx = () => browser.newContext({ viewport: { width: 1100, height: 900 } })
 const ana = await (await ctx()).newPage(), bea = await (await ctx()).newPage()
@@ -29,6 +31,10 @@ try {
   await ana.locator('.wallet.hot .balance', { hasText: '1.000.000 sats' }).waitFor({ timeout: 15000 }) // indexed and spendable
 
   // ---------- inheritance ----------
+  await setDemo('inheritance')
+  const screen = await (await browser.newContext({ viewport: { width: 1600, height: 900 } })).newPage()
+  await screen.goto(BASE + '/screen')
+  await screen.getByRole('heading', { name: /Herencia/ }).waitFor({ timeout: 15000 })
   await ana.getByRole('link', { name: 'Herencia' }).click()
   await ana.getByLabel('Dejar en herencia (sats)').fill('300000')
   await ana.getByLabel('Se reparte si no la mueves en (bloques)').fill('5')
@@ -56,9 +62,13 @@ try {
   await bea.getByText('Herencia repartida').waitFor({ timeout: 15000 })
   await ana.getByText('Herencia repartida').waitFor({ timeout: 15000 })
   await shot(bea, 'c2-inheritance-heir')
+  await screen.locator('.tile', { hasText: ANA }).getByText('repartida').waitFor({ timeout: 15000 })
+  await shot(screen, 'c2b-screen-inheritance')
   console.log('✓ deadline passed; the heir executed the split')
 
   // ---------- subscription ----------
+  await setDemo('subscription')
+  await screen.getByRole('heading', { name: /Suscripción/ }).waitFor({ timeout: 15000 })
   await ana.getByRole('link', { name: 'Suscripción' }).click()
   await ana.getByLabel('¿A quién?').selectOption({ label: BEA })
   await ana.getByLabel('Cada pago (sats)').fill('10000')
@@ -81,6 +91,8 @@ try {
   await ana.getByText('Suscripción cancelada tras 1 pago').waitFor({ timeout: 15000 })
   await bea.getByText('Suscripción cancelada tras 1 pago').waitFor({ timeout: 15000 })
   await shot(bea, 'c3-subscription-cancelled')
+  await screen.locator('.tile', { hasText: `${ANA} → ${BEA}` }).getByText('cancelada').waitFor({ timeout: 15000 })
+  await shot(screen, 'c3b-screen-subscription')
   console.log('✓ payer cancelled; both see it')
 } catch (e) {
   console.log('ANA_STORAGE', JSON.stringify(await ana.evaluate(() => ({ ...localStorage })).catch(() => ({}))))

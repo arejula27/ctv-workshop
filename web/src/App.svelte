@@ -46,10 +46,10 @@
 
   const links = [
     { path: '/wallet', label: 'Cartera' },
-    { path: '/vault', label: 'Vault' },
-    { path: '/herencia', label: 'Herencia' },
-    { path: '/suscripcion', label: 'Suscripción' },
-    { path: '/pool', label: 'Pool' },
+    { path: '/vault', label: 'Vault', demo: 'vault' },
+    { path: '/herencia', label: 'Herencia', demo: 'inheritance' },
+    { path: '/suscripcion', label: 'Suscripción', demo: 'subscription' },
+    { path: '/pool', label: 'Pool', demo: 'pool' },
   ]
 </script>
 
@@ -80,6 +80,7 @@
   <nav>
     {#each links as l}
       <a href={l.path} class:active={route.path === l.path || (route.path === '/' && l.path === '/wallet')}
+        class:now={l.demo === chain.demo} title={l.demo === chain.demo ? 'La demo que estamos jugando ahora' : undefined}
         onclick={(e) => { e.preventDefault(); navigate(l.path) }}>{l.label}</a>
     {/each}
   </nav>
@@ -124,5 +125,7 @@
     font-weight: 600;
   }
   nav a.active { background: var(--card); color: var(--fg); }
+  /* the demo the room is playing now */
+  nav a.now::after { content: ' ●'; color: var(--hot); }
   main { max-width: 44rem; margin: 0 auto; padding: 1rem; }
 </style>
