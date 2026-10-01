@@ -44,3 +44,27 @@ export async function treeStatus(root: ContractView): Promise<Map<string, Contra
 /** First block at which a leaf with `csv` becomes spendable (BIP68). */
 export const unlockHeight = (s: ContractStatus | undefined, csv: number | null) =>
   s?.height != null && csv != null ? s.height + csv : undefined
+
+/** A copy that only expands what happened plus the next choices, for trees with
+ *  many paths (a pool of 6 has 720). Leaves not taken keep their label and
+ *  amounts, but the contracts behind them are folded away. */
+export function prune(c: ContractView, statuses: Map<string, ContractStatus>): ContractView {
+  const s = c.outpoint ? statuses.get(c.outpoint) : undefined
+  return {
+    ...c,
+    leaves: c.leaves.map((leaf, i) => {
+      if (!leaf.tx) return leaf
+      const taken = s?.spentLeaf === i
+      return {
+        ...leaf,
+        tx: {
+          ...leaf.tx,
+          outputs: leaf.tx.outputs.map((o) => ({
+            ...o,
+            contract: o.contract && taken ? prune(o.contract, statuses) : null,
+          })),
+        },
+      }
+    }),
+  }
+}

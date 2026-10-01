@@ -28,7 +28,8 @@ ADMIN_TOKEN=... infra/scripts/smoke.sh             # comprobación end-to-end
 Reiniciar la cadena desde cero: `infra/scripts/reset.sh`.
 
 Tests contra el stack: `infra/scripts/test-regtest.sh` (contratos) e `infra/scripts/test-ui.sh`
-(partida del vault con dos navegadores headless; capturas en `web/e2e/shots/`).
+(las cuatro demos con navegadores headless; capturas en `web/e2e/shots/`). Sin Docker:
+`infra/scripts/native-regtest.sh start|test|stop`.
 
 **Si Docker Desktop se reinicia** y los puertos publicados dan "connection reset" (los contenedores
 siguen vivos pero el port-forwarding queda colgado):
@@ -44,7 +45,12 @@ La cadena sobrevive a un cierre brusco: el server fuerza a bitcoind a escribir a
 | POST | `/api/admin/mine` `{blocks}` | `Bearer ADMIN_TOKEN` | mina N bloques |
 | POST | `/api/admin/jump` `{blocks}` | `Bearer ADMIN_TOKEN` | salto temporal (igual que mine, pero se anuncia en `/screen`) |
 | PUT | `/api/admin/miner` `{paused?, interval_s?}` | `Bearer ADMIN_TOKEN` | reloj automático |
-| WS | `/ws` | — | eventos `hello`, `block`, `faucet`, `miner`, `jump` |
+| GET/POST | `/api/participants` | — | la sala (nombre + dirección) |
+| GET/POST | `/api/vaults` | — | vaults (validados con `ctv-core` y en cadena) |
+| GET/POST | `/api/contracts` | — | herencias y suscripciones (id estable, outpoint móvil) |
+| GET/POST | `/api/pools`, `/api/pools/{id}/join`, `/api/pools/{id}/start` | — | mesas del payment pool; `start` lo financia el faucet |
+| POST | `/api/activity` | — | lo que hace la gente, para el feed (debe apuntar a una tx real) |
+| WS | `/ws` | — | `hello` (con los últimos eventos), `block`, `faucet`, `miner`, `jump`, `participant_joined`, `vault_registered`, `contract_registered`, `pool_updated`, `activity` |
 
 ## Desarrollo sin Docker
 

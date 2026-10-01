@@ -56,3 +56,38 @@ export function subscriptionState(
   }
   return { phase: 'loading', step: 1, paid: 0, blocksLeft: null, pending: false }
 }
+
+export type PoolState = {
+  phase: 'loading' | 'funding' | 'active' | 'dissolved'
+  /** Member indexes still inside, and those who left (in order). */
+  inside: number[]
+  exited: number[]
+  /** Where the current pool sits (while active). */
+  current: string | null
+  /** The last exit is still unconfirmed. */
+  pending: boolean
+}
+
+export function poolState(view: ContractView, statuses: Map<string, ContractStatus>, members: number): PoolState {
+  let inside = Array.from({ length: members }, (_, i) => i)
+  const exited: number[] = []
+  let c: ContractView | null = view
+  let pending = false
+  while (c) {
+    const s = statuses.get(c.outpoint!)
+    if (!s || s.funding === 'unknown')
+      return { phase: exited.length ? 'active' : 'loading', inside, exited, current: c.outpoint, pending: true }
+    if (s.funding === 'mempool' && !exited.length) return { phase: 'funding', inside, exited, current: c.outpoint, pending }
+    if (s.spentLeaf == null) return { phase: 'active', inside, exited, current: c.outpoint, pending }
+    const who = inside[s.spentLeaf]
+    exited.push(who)
+    pending = !s.spentConfirmed
+    if (inside.length === 2) {
+      exited.push(inside.find((m) => m !== who)!)
+      return { phase: 'dissolved', inside: [], exited, current: null, pending }
+    }
+    inside = inside.filter((m) => m !== who)
+    c = c.leaves[s.spentLeaf].tx?.outputs[0]?.contract ?? null
+  }
+  return { phase: 'loading', inside, exited, current: null, pending }
+}

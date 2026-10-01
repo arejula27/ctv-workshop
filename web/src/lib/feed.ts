@@ -22,8 +22,15 @@ export function describe(e: FeedEvent): { icon: string; text: string; tone?: 'ho
       return e.renewed
         ? { icon: '💓', text: `${e.owner} sigue viva: su herencia vuelve a empezar` }
         : { icon: '📜', text: `${e.owner} ha dejado una herencia de ${sats(e.amount_sat)}` }
+    case 'pool_updated':
+      if (e.change === 'created') return { icon: '🏊', text: `Nueva mesa de pool: «${e.name}»` }
+      if (e.change === 'joined')
+        return { icon: '🪑', text: `${e.members[e.members.length - 1]} se ha sentado en la mesa «${e.name}»` }
+      return { icon: '🏊', text: `La mesa «${e.name}» comparte ahora un solo UTXO de ${sats(e.amount_sat)} entre ${e.members.length}` }
     case 'activity':
       switch (e.kind) {
+        case 'pool_exit':
+          return { icon: '🚪', text: `${e.who} ha salido de su pool sin pedir permiso a nadie`, tone: 'hot' }
         case 'inheritance_keep_alive':
           return { icon: '💓', text: `${e.who} ha dado señales de vida` }
         case 'inheritance_withdraw':

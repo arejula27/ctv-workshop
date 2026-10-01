@@ -1,5 +1,5 @@
 // workshop-server API.
-import type { InheritanceParams, SubscriptionParams, VaultParams } from './core'
+import type { InheritanceParams, PoolMember, SubscriptionParams, VaultParams } from './core'
 import type { MinerSettings } from './events'
 
 async function call<T>(method: string, path: string, body?: unknown, token?: string): Promise<T> {
@@ -31,6 +31,7 @@ export type ActivityKind =
   | 'inheritance_claim'
   | 'subscription_pay'
   | 'subscription_cancel'
+  | 'pool_exit'
 
 export const joinRoom = (name: string, address: string) =>
   call('POST', '/api/participants', { name, address })
@@ -57,6 +58,25 @@ export const listContracts = () => call<ContractEntry[]>('GET', '/api/contracts'
 /** `outpoint`: a vault's funding outpoint, or a contract's id. */
 export const reportActivity = (who: string, kind: ActivityKind, outpoint: string, txid: string) =>
   call('POST', '/api/activity', { who, kind, outpoint, txid })
+
+// ---------- pool tables ----------
+
+export type PoolTable = {
+  id: string
+  name: string
+  host: string
+  members: PoolMember[]
+  share_sat: number
+  fee_sat: number
+  state: 'open' | 'funding' | 'funded'
+  outpoint: string | null
+  created_at: number
+}
+
+export const listPools = () => call<PoolTable[]>('GET', '/api/pools')
+export const createPool = (name: string, host: string) => call<PoolTable>('POST', '/api/pools', { name, host })
+export const joinPool = (id: string, member: PoolMember) => call<PoolTable>('POST', `/api/pools/${id}/join`, member)
+export const startPool = (id: string) => call<PoolTable>('POST', `/api/pools/${id}/start`)
 
 // ---------- admin ----------
 

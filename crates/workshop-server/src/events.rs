@@ -59,6 +59,16 @@ pub enum Event {
         /// True when an existing contract moved (an inheritance's "I'm alive").
         renewed: bool,
     },
+    PoolUpdated {
+        id: String,
+        name: String,
+        /// Member labels, in seat order.
+        members: Vec<String>,
+        state: crate::registry::PoolState,
+        /// What happened: "created", "joined" or "funded".
+        change: String,
+        amount_sat: u64,
+    },
     Activity {
         who: String,
         kind: ActivityKind,
@@ -85,6 +95,7 @@ pub enum ActivityKind {
     InheritanceClaim,
     SubscriptionPay,
     SubscriptionCancel,
+    PoolExit,
 }
 
 impl Event {

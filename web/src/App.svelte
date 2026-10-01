@@ -10,6 +10,7 @@
   import Screen from './routes/Screen.svelte'
   import Herencia from './routes/Herencia.svelte'
   import Suscripcion from './routes/Suscripcion.svelte'
+  import PoolPage from './routes/Pool.svelte'
   import Admin from './routes/Admin.svelte'
 
   let loaded = $state(false)
@@ -48,6 +49,7 @@
     { path: '/vault', label: 'Vault' },
     { path: '/herencia', label: 'Herencia' },
     { path: '/suscripcion', label: 'Suscripción' },
+    { path: '/pool', label: 'Pool' },
   ]
 </script>
 
@@ -88,6 +90,8 @@
       <Herencia />
     {:else if route.path === '/suscripcion'}
       <Suscripcion />
+    {:else if route.path === '/pool'}
+      <PoolPage />
     {:else}
       <WalletPage />
     {/if}

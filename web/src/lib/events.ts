@@ -27,6 +27,15 @@ export type FeedEvent =
       renewed: boolean
     }
   | {
+      type: 'pool_updated'
+      id: string
+      name: string
+      members: string[]
+      state: 'open' | 'funding' | 'funded'
+      change: 'created' | 'joined' | 'funded'
+      amount_sat: number
+    }
+  | {
       type: 'activity'
       who: string
       kind: import('./api').ActivityKind

@@ -105,3 +105,17 @@ export const subscription = {
   cancel: (p: SubscriptionParams, k: number, funding: string, seed: string, to: string): SignedTx =>
     wasm.subscription_cancel(p, k, funding, seed, to),
 }
+
+// ---------- payment pool ----------
+
+export type PoolMember = { label: string; pubkey: string; address: string }
+export type PoolParams = { members: PoolMember[]; share_sat: number; fee_sat: number }
+
+export const pool = {
+  address: (p: PoolParams): string => wasm.pool_address(p),
+  /** Every exit order: prune it before drawing (see treeStatus.prune). */
+  view: (p: PoolParams, funding?: string): ContractView => wasm.pool_view(p, funding ?? null),
+  /** `who` leaves the pool left after `exited`, which sits at `current`. */
+  exit: (p: PoolParams, exited: number[], who: number, current: string, seed: string): SignedTx =>
+    wasm.pool_exit(p, new Uint32Array(exited), who, current, seed),
+}

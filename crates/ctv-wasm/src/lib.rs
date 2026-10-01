@@ -14,6 +14,7 @@ use bitcoin::{
 use ctv_core::{
     contracts::{
         inheritance::{Heir, Inheritance, InheritanceParams},
+        pool::{Pool, PoolMember, PoolParams},
         subscription::{Subscription, SubscriptionParams},
         vault::{Vault, VaultParams},
     },
@@ -330,6 +331,73 @@ pub fn subscription_cancel(
     let s = subscription(params)?;
     let tx = s
         .cancel(k, outpoint(funding)?, address(to_address)?, &wallet(seed_hex)?.keypair(Role::Main))
+        .map_err(err)?;
+    signed(tx)
+}
+
+// ---------- payment pool ----------
+
+#[derive(Clone, Serialize, Deserialize)]
+struct JsPoolMember {
+    label: String,
+    pubkey: String,
+    address: String,
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+struct JsPoolParams {
+    members: Vec<JsPoolMember>,
+    share_sat: u64,
+    fee_sat: u64,
+}
+
+fn pool(params: JsValue) -> Result<Pool, JsError> {
+    let p: JsPoolParams = from_js(params)?;
+    let members = p
+        .members
+        .iter()
+        .map(|m| {
+            Ok(PoolMember {
+                label: m.label.clone(),
+                pubkey: xonly(&m.pubkey)?,
+                payout: address(&m.address)?,
+            })
+        })
+        .collect::<Result<_, JsError>>()?;
+    Pool::new(PoolParams {
+        members,
+        share: Amount::from_sat(p.share_sat),
+        fee: Amount::from_sat(p.fee_sat),
+    })
+    .map_err(err)
+}
+
+#[wasm_bindgen]
+pub fn pool_address(params: JsValue) -> Result<String, JsError> {
+    Ok(pool(params)?.address(NETWORK).to_string())
+}
+
+/// The whole tree (every exit order). Big for 6 members: the UI prunes it.
+#[wasm_bindgen]
+pub fn pool_view(params: JsValue, funding: Option<String>) -> JsResult {
+    let p = pool(params)?;
+    let op = funding.as_deref().map(outpoint).transpose()?;
+    to_js(&p.contract.view(NETWORK, op))
+}
+
+/// `who` (member index) leaves the pool left after `exited`, sitting at `current`.
+#[wasm_bindgen]
+pub fn pool_exit(
+    params: JsValue,
+    exited: Vec<u32>,
+    who: u32,
+    current: &str,
+    seed_hex: &str,
+) -> JsResult {
+    let p = pool(params)?;
+    let exited: Vec<usize> = exited.into_iter().map(|i| i as usize).collect();
+    let tx = p
+        .exit(&exited, who as usize, outpoint(current)?, &wallet(seed_hex)?.keypair(Role::Main))
         .map_err(err)?;
     signed(tx)
 }

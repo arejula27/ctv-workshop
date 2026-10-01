@@ -79,6 +79,8 @@ export const chain = $state({
   vaultsTick: 0,
   /** Bumped when an inheritance or subscription is registered or moves. */
   contractsTick: 0,
+  /** Bumped when a pool table changes. */
+  poolsTick: 0,
   /** Simulated calendar (see Status). */
   simEpoch: 0,
   simBlock: 600,
@@ -127,6 +129,7 @@ export function startChain() {
         chain.feed = [e, ...chain.feed].slice(0, FEED_LEN)
         if (e.type === 'vault_registered') chain.vaultsTick++
         if (e.type === 'contract_registered') chain.contractsTick++
+        if (e.type === 'pool_updated') chain.poolsTick++
       }
     },
     (open) => (chain.connected = open),

@@ -61,6 +61,37 @@ pub struct ContractEntry {
     pub updated_at: u64,
 }
 
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "snake_case")]
+pub enum PoolState {
+    /// People can join.
+    Open,
+    /// The server is funding it; guards against a double start.
+    Funding,
+    Funded,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+pub struct PoolMemberJson {
+    pub label: String,
+    pub pubkey: String,
+    pub address: String,
+}
+
+/// A pool table: who sits at it and, once funded, where the shared UTXO is.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct PoolTable {
+    pub id: String,
+    pub name: String,
+    pub host: String,
+    pub members: Vec<PoolMemberJson>,
+    pub share_sat: u64,
+    pub fee_sat: u64,
+    pub state: PoolState,
+    pub outpoint: Option<String>,
+    pub created_at: u64,
+}
+
 #[derive(Default, Serialize, Deserialize)]
 struct Data {
     /// Keyed by the participant's main address.
@@ -70,6 +101,8 @@ struct Data {
     /// Keyed by id. `default` keeps registries saved before F6 loading.
     #[serde(default)]
     contracts: BTreeMap<String, ContractEntry>,
+    #[serde(default)]
+    pools: BTreeMap<String, PoolTable>,
 }
 
 pub struct Registry {
@@ -157,6 +190,63 @@ impl Registry {
         let mut list: Vec<_> = self.data.read().await.contracts.values().cloned().collect();
         list.sort_by_key(|c| c.registered_at);
         list
+    }
+
+    pub async fn pools(&self) -> Vec<PoolTable> {
+        let mut list: Vec<_> = self.data.read().await.pools.values().cloned().collect();
+        list.sort_by_key(|t| t.created_at);
+        list
+    }
+
+    pub async fn pool(&self, id: &str) -> Option<PoolTable> {
+        self.data.read().await.pools.get(id).cloned()
+    }
+
+    pub async fn create_pool(
+        &self,
+        name: String,
+        host: String,
+        share_sat: u64,
+        fee_sat: u64,
+    ) -> PoolTable {
+        let mut data = self.data.write().await;
+        // short, readable id; collisions are retried
+        let mut n = now();
+        let id = loop {
+            let id = format!("{:05x}", n % 0xfffff);
+            if !data.pools.contains_key(&id) {
+                break id;
+            }
+            n += 1;
+        };
+        let table = PoolTable {
+            id: id.clone(),
+            name,
+            host,
+            members: vec![],
+            share_sat,
+            fee_sat,
+            state: PoolState::Open,
+            outpoint: None,
+            created_at: now(),
+        };
+        data.pools.insert(id, table.clone());
+        self.persist(&data);
+        table
+    }
+
+    /// Applies `f` to the table atomically and saves it.
+    pub async fn update_pool<T>(
+        &self,
+        id: &str,
+        f: impl FnOnce(&mut PoolTable) -> Result<T, String>,
+    ) -> Result<(T, PoolTable), String> {
+        let mut data = self.data.write().await;
+        let table = data.pools.get_mut(id).ok_or("no such table")?;
+        let out = f(table)?;
+        let table = table.clone();
+        self.persist(&data);
+        Ok((out, table))
     }
 
     fn persist(&self, data: &Data) {

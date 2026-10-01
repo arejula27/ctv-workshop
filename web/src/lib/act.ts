@@ -17,5 +17,6 @@ export function friendly(e: unknown): string {
     return 'No tienes saldo suficiente. Si acabas de pedir sats, espera unos segundos a que lleguen.'
   if (msg.includes('every heir must get')) return 'La cantidad es demasiado pequeña para repartirla entre tanta gente.'
   if (msg.includes('minimum is')) return 'La cantidad es demasiado pequeña.'
+  if (msg.includes('does not match the leaf')) return 'Hace falta su firma: nadie puede sacar a otra persona del pool.'
   return msg
 }

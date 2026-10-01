@@ -136,6 +136,9 @@ pub async fn activity(
     let vault = state.registry.vaults().await.into_iter().find(|v| v.outpoint == req.outpoint);
     let (owner, amount_sat, outpoint) = match vault {
         Some(v) => (v.owner, v.params.amount_sat, v.outpoint),
+        None if let Some(t) = state.registry.pool(&req.outpoint).await => {
+            (t.host, t.share_sat, t.id)
+        }
         None => {
             let c = state
                 .registry

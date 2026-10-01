@@ -5,6 +5,7 @@ mod api;
 mod chain;
 mod config;
 mod events;
+mod pools;
 mod registry;
 mod room;
 mod rpc;

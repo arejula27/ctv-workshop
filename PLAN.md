@@ -252,7 +252,8 @@ Atribución en `vendor-notes/` y en la cabecera de cada archivo copiado.
 | F4 | ✅ WASM + web del vault. Partida completa (dueña + ladrona) verificada con dos navegadores headless |
 | F5 | ✅ Sala (registro de participantes y vaults), `/screen` para el proyector, `/admin` para el presentador |
 | F6 | ✅ Herencia y suscripción cancelable: contratos, tests de regtest, wasm, páginas, registro en la sala |
-| F7 | ⏭ Siguiente |
+| F7 | ✅ Payment pool: contrato con firma por salida, coordinador de mesas, página, tests |
+| F8 | ⏭ Siguiente |
 
 ### F3: resultado
 - `ctv.rs`: `template_hash` BIP-119 completo; pasa **todos** los vectores oficiales.
@@ -335,13 +336,26 @@ Atribución en `vendor-notes/` y en la cabecera de cada archivo copiado.
 ### Pendiente menor
 - `/screen`: el tablero solo muestra vaults (herencias y suscripciones salen en el feed). Añadirlas si da tiempo.
 
-### F7: siguiente — payment pool
-1. Portar `pools.rs` de stutxo (MIT) a `contracts/pool.rs` sobre el motor `tree.rs`, añadiendo
-   `<pk_i> CHECKSIGVERIFY` a cada hoja de salida. Mesas de ≤ 6 (≤ 64 árboles, instantáneo en wasm).
-2. Coordinador en el server: crear mesa, unirse (nombre, pubkey, dirección de salida), cerrar → todos calculan
-   el mismo árbol. Financiación v1: el faucet financia el pool de la mesa.
-3. Página `/pool`: la mesa, mi camino de salida, "Salir del pool" en cualquier orden.
-4. Tests de regtest (salidas en distinto orden, nadie puede sacar a otro) y test UI con 3+ navegadores.
+### F7: resultado
+- `contracts/pool.rs` (diseño de stutxo, MIT, sobre `tree.rs`): `pool(S)` = una hoja por miembro
+  `[<pk_i> CHECKSIGVERIFY <H(salida_i)> CTV]`; `salida_i` deja `pool(S∖i)` en la salida 0 y paga `cuota − fee` a i;
+  con 2 dentro se disuelve (el último cobra la cuota entera). **La firma por hoja es lo nuevo**: nadie saca a nadie.
+  Todos los órdenes de salida precalculados (|S|! caminos; máx. 6 → 720, compila en 0,02 s).
+- Tests regtest: salidas en orden arbitrario hasta disolverse; una salida que intenta llevarse de más → rechazo de consenso.
+- Server (`pools.rs`): mesas persistidas `abierta → financiando → financiada` (el estado intermedio evita doble
+  financiación), máx. 6, unirse idempotente; `start` calcula la dirección con `ctv-core` y el faucet manda
+  `n × 100.000` sats. Eventos `pool_updated` y actividad `pool_exit`.
+- Web `/pool`: mesas (abrir, sentarse, empezar), tarjeta con el **UTXO compartido** como una píldora con todos
+  dentro y los que salen fuera en orden con lo cobrado; "🚪 Salir"; "Sacar" a otra persona → "❌ Hace falta su firma".
+  Árbol **podado** (`prune()` en `treeStatus.ts`): solo lo ocurrido + las salidas posibles ahora.
+- Test UI `pool-game.mjs` con tres navegadores.
+
+### F8: siguiente — preparar el día del workshop
+1. Prueba de carga: 20–30 clientes simulados (faucet + vault + pool a la vez) contra el stack; vigilar electrs y el server.
+2. Fijar por digest las imágenes `:latest` (electrs, esplora, caddy) y comprobar un `reset.sh` limpio.
+3. `/screen`: añadir herencias, suscripciones y mesas al tablero (hoy solo vaults; el resto sale en el feed).
+4. `workshop/runbook.md` (orden de demos, ritmo del reloj y saltos por escena, plan B), `cheatsheet.md` + QR, slides.
+5. Despliegue en VPS (`SITE_ADDRESS`, HTTPS) y ensayo general con 5–10 personas.
 
 ### Notas de entorno
 - En este Docker hay otros stacks regtest (btcpay, arkd, mempool…) usando 18443, 3000, 50001… → nuestro RPC de depuración está en 18543.
