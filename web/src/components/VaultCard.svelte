@@ -18,7 +18,8 @@
   }: {
     params: VaultParams
     outpoint: string
-    role: 'owner' | 'thief'
+    /** guardian: the vault's safe box is your wallet; you can press panic for them. */
+    role: 'owner' | 'thief' | 'guardian'
     /** The vault owner's name (for the thief's view). */
     owner?: string
     /** Secret of the hot key: the owner's own, or a stolen one. */
@@ -33,6 +34,7 @@
   let unvault = $derived(st.map.get(unvaultOutpoint(view)))
   let blocksLeft = $derived(blocksLeftOf(unvault, params.delay, chain.height))
   let isThief = $derived(role === 'thief')
+  let isGuardian = $derived(role === 'guardian')
   let hotByMe = $derived(isMine(unvault?.spentBy))
   let busy = $state(false)
   let error = $state('')
@@ -85,7 +87,7 @@
 <article class="panel card" class:thief={isThief} class:alarm={phase === 'withdrawing'}>
   <header>
     <div>
-      <div class="eyebrow">{isThief ? `Vault de ${owner}` : 'Vault'}</div>
+      <div class="eyebrow">{isThief || isGuardian ? `Vault de ${owner}` : 'Vault'}</div>
       {#if ended}
         <div class="value">Vacío</div>
         <div class="muted small">Tenía {sats(params.amount_sat)}</div>
@@ -135,7 +137,9 @@
     <div class="sides">
       <div class="side hot">
         <div class="eyebrow"><span class="dot hot"></span>Con la llave caliente</div>
-        {#if phase === 'locked'}
+        {#if isGuardian && (phase === 'locked' || phase === 'withdrawing')}
+          <p class="muted">Solo quien tenga la llave caliente de {owner} puede sacarlo por aquí, y tiene que esperar.</p>
+        {:else if phase === 'locked'}
           <p>{isThief ? 'Inicia el retiro. Luego hay que esperar, y la dueña lo verá.' : `Primero se inicia el retiro y luego hay que esperar ${params.delay} bloques.`}</p>
           <button class="hot" onclick={start} disabled={locked}>Iniciar retiro</button>
         {:else if phase === 'withdrawing'}
@@ -154,7 +158,12 @@
       </div>
       <div class="side cold">
         <div class="eyebrow"><span class="dot cold"></span>Hacia la caja fuerte</div>
-        {#if isThief && (phase === 'locked' || phase === 'withdrawing')}
+        {#if isGuardian && phase === 'locked'}
+          <p>Eres su caja fuerte. Si alguien inicia un retiro, podrás pulsar el pánico por {owner}: el dinero vendría a tu cartera.</p>
+        {:else if isGuardian && phase === 'withdrawing'}
+          <p><b>Alguien está sacando el vault de {owner}.</b> El pánico no necesita ninguna firma: púlsalo y el dinero vendrá a tu cartera.</p>
+          <button class="cold" onclick={panic} disabled={locked}>Botón del pánico</button>
+        {:else if isThief && (phase === 'locked' || phase === 'withdrawing')}
           <p class="muted">Fuera de tu alcance. Si {owner} pulsa el pánico, el dinero acaba aquí.</p>
         {:else if phase === 'locked'}
           <p>Al instante, sin esperas.</p>

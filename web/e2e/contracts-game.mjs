@@ -61,9 +61,9 @@ try {
   console.log('✓ inheritance created; the heir sees it')
 
   await mine(3)
-  await ana.getByRole('button', { name: '💓 Sigo viva' }).click()
+  await ana.getByRole('button', { name: 'Sigo viva' }).click()
   // the renewed inheritance (300.000 minus one fee) must be broadcast before the block
-  await ana.getByText('299.000 sats · se reparte').waitFor({ timeout: 15000 })
+  await ana.locator('.card .value', { hasText: '299.000 sats' }).waitFor({ timeout: 15000 })
   await mine(1)
   await ana.getByText(/Si no das señales de vida en 4 bloques/).waitFor({ timeout: 15000 })
   await bea.getByText(new RegExp(`Si ${ANA} no da señales de vida en 4 bloques`)).waitFor({ timeout: 15000 })
@@ -71,11 +71,11 @@ try {
   console.log('✓ "I\'m alive" restarts the clock, for the heir too')
 
   await mine(4)
-  await bea.getByText('¡Plazo cumplido!').waitFor({ timeout: 15000 })
-  await bea.getByRole('button', { name: '📜 Ejecutar el reparto' }).click()
+  await bea.locator('.card .badge', { hasText: 'Plazo cumplido' }).waitFor({ timeout: 15000 })
+  await bea.getByRole('button', { name: 'Ejecutar el reparto' }).click()
   await mine(1)
-  await bea.getByText('Herencia repartida').waitFor({ timeout: 15000 })
-  await ana.getByText('Herencia repartida').waitFor({ timeout: 15000 })
+  await bea.getByText('Herencia repartida').first().waitFor({ timeout: 15000 })
+  await ana.getByText('Herencia repartida').first().waitFor({ timeout: 15000 })
   await shot(bea, 'c2-inheritance-heir')
   await screen.locator('.tile', { hasText: ANA }).getByText('repartida').waitFor({ timeout: 15000 })
   await shot(screen, 'c2b-screen-inheritance')
@@ -101,7 +101,7 @@ try {
   await ana.getByText(/Cobrados 10\.000 sats/).waitFor({ timeout: 15000 })
   console.log('✓ subscription: payment 1 collected automatically')
 
-  await ana.getByRole('button', { name: '✋ Cancelar suscripción' }).click()
+  await ana.getByRole('button', { name: 'Cancelar suscripción' }).click()
   await mine(1)
   await ana.getByText('Suscripción cancelada tras 1 pago').waitFor({ timeout: 15000 })
   await bea.getByText('Suscripción cancelada tras 1 pago').waitFor({ timeout: 15000 })

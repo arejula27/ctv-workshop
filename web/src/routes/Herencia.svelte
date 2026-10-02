@@ -60,13 +60,15 @@
   }
 </script>
 
-<h1>Herencia</h1>
-<p class="intro">Si dejas de dar señales de vida, tu dinero se reparte solo, como dejaste escrito. Sin notario y sin que nadie pueda cambiar el reparto.</p>
+<div class="head">
+  <div class="eyebrow">Demo · Herencia</div>
+  <h1>Herencia</h1>
+  <p class="muted">Si dejas de dar señales de vida, tu dinero se reparte solo, como dejaste escrito. Sin notario y sin que nadie pueda cambiar el reparto.</p>
+</div>
 
 <div class="split">
-  <section class="half hot">
-    <div class="icon">🔥</div>
-    <h2>Tu cartera caliente</h2>
+  <section class="panel half">
+    <h2><span class="dot hot"></span>Tu cartera</h2>
     <div class="bal">{balances.loaded ? sats(balances.main) : '…'}</div>
     <form onsubmit={create}>
       <label>
@@ -87,14 +89,13 @@
           <label class="check"><input type="checkbox" value={p.address} bind:group={picked} /> {p.name}</label>
         {/each}
       </fieldset>
-      <button type="submit" class="hot" disabled={busy || !picked.length}>Dejar herencia</button>
+      <button type="submit" disabled={busy || !picked.length}>Dejar herencia</button>
     </form>
     {#if error}<p class="error">{error}</p>{/if}
   </section>
 
-  <section class="half cold">
-    <div class="icon">🧊</div>
-    <h2>Te han dejado en herencia</h2>
+  <section class="panel half">
+    <h2><span class="dot cold"></span>Te han dejado en herencia</h2>
     <div class="bal">{forMe.length} {forMe.length === 1 ? 'herencia' : 'herencias'}</div>
     <p class="hint">Si la dueña deja de dar señales de vida, cualquiera puede ejecutar el reparto y tu parte llega a tu cartera.</p>
   </section>
@@ -110,14 +111,13 @@
 {/each}
 
 <style>
-  .intro { margin-top: 0; }
+  .head { margin-bottom: 1rem; }
+  .head p { margin: 0; }
   .split { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin: 1rem 0; }
-  .half { border-radius: 16px; padding: 1rem; display: flex; flex-direction: column; gap: 0.5rem; }
-  .half { background: var(--surface); border: 1px solid var(--line); box-shadow: var(--shadow); }
+  .half { display: flex; flex-direction: column; gap: 0.5rem; }
   h2 { margin: 0; }
-  .icon { font-size: 2rem; }
   .hint { font-size: 0.85rem; color: var(--muted); margin: 0; }
-  .bal { font-size: 1.6rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .bal { font-size: 1.6rem; font-weight: 650; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
   form { display: flex; flex-direction: column; gap: 0.6rem; }
   label { display: flex; flex-direction: column; gap: 0.25rem; font-weight: 600; font-size: 0.9rem; }
   fieldset { border: 1px solid var(--line); border-radius: 10px; display: flex; flex-direction: column; gap: 0.3rem; max-height: 14rem; overflow-y: auto; }

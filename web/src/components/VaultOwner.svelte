@@ -1,7 +1,7 @@
 <script lang="ts">
   import { newSeed, vault as core, walletInfo, walletSecret, walletSend, type VaultParams } from '../lib/core'
   import * as esplora from '../lib/esplora'
-  import { listHotWallets, registerHotWallet, registerVault, type HotWallet } from '../lib/api'
+  import { listHotWallets, listVaults, registerHotWallet, registerVault, type HotWallet, type VaultEntry } from '../lib/api'
   import { friendly } from '../lib/act'
   import { history, type HistoryEntry } from '../lib/history'
   import { addVault, chain, markMine, me, saveVaultGame, vaultGame, vaults } from '../lib/store.svelte'
@@ -14,6 +14,7 @@
   const FEE_SAT = 1_000
 
   let wallets = $state<HotWallet[]>([])
+  let roomVaults = $state<VaultEntry[]>([])
   let safeChoice = $state('new')
   let hotBalance = $state(0)
   let hotPanel = $state<{ reload: () => Promise<void> }>()
@@ -47,6 +48,15 @@
     void chain.tick
     if (safe?.kind === 'friend') history([safe.address]).then((h) => (friendHistory = h)).catch(() => {})
   })
+  // Only what came from our own vaults, not the friend's whole wallet.
+  let fromMyVaults = $derived(friendHistory.filter((e) => e.delta > 0 && e.counterparty && labelOf(e.counterparty) === 'vault'))
+
+  // Vaults of others whose safe box is our hot wallet: we can press panic for them.
+  $effect(() => {
+    void chain.vaultsTick
+    listVaults().then((v) => (roomVaults = v)).catch(() => {})
+  })
+  let guarded = $derived(hot ? roomVaults.filter((v) => v.params.cold_pubkey === hot.main_pubkey && v.owner !== me.id?.name) : [])
 
   function labelOf(address: string): string | undefined {
     if (address === hot?.main_address) return 'tu cartera caliente'
@@ -124,7 +134,7 @@
       <span class="mono addr">{short(safe.address, 10)}</span>
       <div class="history">
         <div class="eyebrow">Lo que ha llegado</div>
-        <TxHistory entries={friendHistory} {labelOf} />
+        <TxHistory entries={fromMyVaults} {labelOf} />
       </div>
     </section>
   {:else}
@@ -150,6 +160,14 @@
   <h2 class="section">Tus vaults</h2>
   {#each myVaults as v (v.id)}
     <VaultCard params={v.params} outpoint={v.outpoint} role="owner" secret={walletSecret(vaultGame.hot!.seed)} destination={hot!.main_address} />
+  {/each}
+{/if}
+
+{#if guarded.length}
+  <h2 class="section">Vaults que proteges</h2>
+  <p class="muted guard-hint">Tu cartera caliente es la caja fuerte de estas personas. Si alguien inicia un retiro de su vault, puedes pulsar el pánico por ellas.</p>
+  {#each guarded as v (v.outpoint)}
+    <VaultCard params={v.params} outpoint={v.outpoint} role="guardian" owner={v.owner} secret="" destination="" />
   {/each}
 {/if}
 
@@ -180,6 +198,7 @@
   .addr { color: var(--muted); }
   .history { margin-top: 0.6rem; width: 100%; }
   .section { margin: 1.75rem 0 0.75rem; }
+  .guard-hint { margin: -0.4rem 0 0.75rem; font-size: 0.9rem; }
   :global(.card) { margin-bottom: 1rem; }
   form { display: flex; flex-direction: column; gap: 0.75rem; }
   .hint { font-weight: 400; font-size: 0.8rem; }

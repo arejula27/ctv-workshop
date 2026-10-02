@@ -59,13 +59,15 @@
   }
 </script>
 
-<h1>Suscripción</h1>
-<p class="intro">Pagos que llegan solos cada cierto tiempo, sin dar permiso a nadie para cobrarte. Y puedes cancelar cuando quieras.</p>
+<div class="head">
+  <div class="eyebrow">Demo · Suscripción</div>
+  <h1>Suscripción</h1>
+  <p class="muted">Pagos que llegan solos cada cierto tiempo, sin dar permiso a nadie para cobrarte. Y puedes cancelar cuando quieras.</p>
+</div>
 
 <div class="split">
-  <section class="half hot">
-    <div class="icon">🔥</div>
-    <h2>Tú pagas</h2>
+  <section class="panel half">
+    <h2><span class="dot hot"></span>Tú pagas</h2>
     <div class="bal">{balances.loaded ? sats(balances.main) : '…'}</div>
     <form onsubmit={create}>
       <label>
@@ -91,14 +93,13 @@
       {#if total != null}
         <p class="hint">Se reservan {sats(total)}: los {count} pagos y las comisiones.</p>
       {/if}
-      <button type="submit" class="hot" disabled={busy || total == null}>Crear suscripción</button>
+      <button type="submit" disabled={busy || total == null}>Crear suscripción</button>
     </form>
     {#if error}<p class="error">{error}</p>{/if}
   </section>
 
-  <section class="half cold">
-    <div class="icon">🧊</div>
-    <h2>Tú cobras</h2>
+  <section class="panel half">
+    <h2><span class="dot cold"></span>Tú cobras</h2>
     <div class="bal">{forMe.length} {forMe.length === 1 ? 'suscripción' : 'suscripciones'}</div>
     <p class="hint">Cuando vence un pago, tu app lo cobra sola. Nadie tiene que firmar nada.</p>
   </section>
@@ -116,14 +117,13 @@
 {/each}
 
 <style>
-  .intro { margin-top: 0; }
+  .head { margin-bottom: 1rem; }
+  .head p { margin: 0; }
   .split { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin: 1rem 0; }
-  .half { border-radius: 16px; padding: 1rem; display: flex; flex-direction: column; gap: 0.5rem; }
-  .half { background: var(--surface); border: 1px solid var(--line); box-shadow: var(--shadow); }
+  .half { display: flex; flex-direction: column; gap: 0.5rem; }
   h2 { margin: 0; }
-  .icon { font-size: 2rem; }
   .hint { font-size: 0.85rem; color: var(--muted); margin: 0; }
-  .bal { font-size: 1.6rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .bal { font-size: 1.6rem; font-weight: 650; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
   form { display: flex; flex-direction: column; gap: 0.6rem; }
   label { display: flex; flex-direction: column; gap: 0.25rem; font-weight: 600; font-size: 0.9rem; }
   select { font: inherit; padding: 0.6rem 0.75rem; border-radius: 10px; border: 1px solid var(--line); background: var(--bg); color: var(--fg); }

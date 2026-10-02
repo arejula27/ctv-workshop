@@ -51,14 +51,15 @@
   const jumps = [1, 5, 10, 50]
 </script>
 
-<h1>Panel del presentador</h1>
+<div class="eyebrow">Presentador</div>
+<h1>Panel del taller</h1>
 
-<label>
+<label class="panel token">
   Token de admin
   <input type="password" bind:value={token} placeholder="ADMIN_TOKEN de infra/.env" autocomplete="off" />
 </label>
 
-<section>
+<section class="panel">
   <h2>Demo que se juega ahora</h2>
   <p class="muted">Cambia lo que enseña <code>/screen</code> y marca la pestaña en la app de todo el mundo.</p>
   <div class="row">
@@ -69,7 +70,7 @@
   </div>
 </section>
 
-<section>
+<section class="panel">
   <h2>Reloj</h2>
   <p>
     Bloque <b>{chain.height}</b> ·
@@ -88,7 +89,7 @@
   </div>
 </section>
 
-<section>
+<section class="panel">
   <h2>Saltar en el tiempo</h2>
   <div class="row">
     {#each jumps as n}
@@ -108,20 +109,23 @@
 
 {#if error}<p class="error">{error}</p>{/if}
 
-<section>
+<section class="panel">
   <h2>Sala</h2>
   <p>{people.length} participantes · {vaultCount} vaults · <a href="/screen" target="_blank">abrir /screen ↗</a></p>
   <p class="muted">{people.map((p) => p.name).join(', ')}</p>
 </section>
 
-<section>
+<section class="panel">
   <h2>Reiniciar</h2>
   <p class="muted">Desde el host: <code>infra/scripts/reset.sh</code> (borra la cadena y la sala).</p>
 </section>
 
 <style>
-  section { margin: 1.5rem 0; }
+  section { margin: 1rem 0; display: flex; flex-direction: column; gap: 0.4rem; }
+  section h2 { margin-bottom: 0.2rem; }
+  section p { margin: 0; }
+  .token { margin-top: 1rem; }
   label { display: flex; flex-direction: column; gap: 0.3rem; font-weight: 600; }
   .row { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; margin-top: 0.5rem; }
-  .on { outline: 2px solid var(--fg); }
+  .on { background: var(--fg); color: var(--bg); border-color: var(--fg); }
 </style>

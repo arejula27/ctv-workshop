@@ -408,6 +408,13 @@ Atribución en `vendor-notes/` y en la cabecera de cada archivo copiado.
 - Tests UI con red del host (como el navegador de un participante); el del pool abre un enlace del explorador.
 - Pendiente: quitar la pestaña "Cartera" (dar cartera propia a herencia y suscripción) y pasar toda la batería antes del commit.
 
+### Estilo unificado y guardianes (2026-10-02)
+- Herencia, suscripción y admin con el mismo estilo que el vault: tarjetas neutras, etiquetas de estado, lista
+  numerada de transacciones con txid y enlace, sin emojis ni árbol del contrato.
+- **Guardián**: quien es la caja fuerte de otra persona ve "Vaults que proteges" y puede pulsar el pánico por ella
+  (no necesita firma). La caja fuerte de un amigo solo muestra lo que llega desde tus vaults.
+- `/screen` del vault: una tarjeta por persona (cartera caliente + sus vaults), enlaces al explorador en cada ficha.
+
 ### Notas de entorno
 - En este Docker hay otros stacks regtest (btcpay, arkd, mempool…) usando 18443, 3000, 50001… → nuestro RPC de depuración está en 18543.
 - Tests: `infra/scripts/test-regtest.sh` (contratos) y `infra/scripts/test-ui.sh` (partida con dos navegadores).

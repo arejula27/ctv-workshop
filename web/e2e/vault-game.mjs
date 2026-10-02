@@ -101,18 +101,24 @@ try {
   await victim.locator('.card', { hasText: '500.000 sats' }).getByRole('button', { name: 'Iniciar retiro' }).click()
   await jump(1)
   await ana.locator('.card .badge', { hasText: 'Retiro en curso' }).waitFor({ timeout: 20000 })
-  const panicBtn = ana.getByRole('button', { name: 'Botón del pánico' })
+  // Carla is Ana's safe box: she sees the vault she protects and presses panic for Ana
+  // (panic needs no signature). Clicking twice must change nothing.
+  const guarded = carla.locator('.card', { hasText: `Vault de ${ANA}` })
+  await guarded.locator('.badge', { hasText: 'Retiro en curso' }).waitFor({ timeout: 20000 })
+  const panicBtn = guarded.getByRole('button', { name: 'Botón del pánico' })
   await panicBtn.click()
-  await panicBtn.click({ force: true, timeout: 2000 }).catch(() => {}) // a second click must change nothing
+  await panicBtn.click({ force: true, timeout: 2000 }).catch(() => {})
   await jump(1)
   await ana.locator('.card .badge', { hasText: 'En la caja fuerte' }).waitFor({ timeout: 20000 })
   await wallet(carla, 'Cartera caliente').locator('.amount', { hasText: '498.000 sats' }).waitFor({ timeout: 20000 })
   await victim.getByText('a salvo gracias al pánico').waitFor({ timeout: 20000 })
-  console.log('✓ Ana panicked: the money went to Carla\'s wallet; Bea sees it failed')
+  // Ana's safe box shows only what came from her vaults
+  await ana.locator('section.panel', { hasText: `La cartera de ${CARLA}` }).getByText('Recibido').waitFor({ timeout: 20000 })
+  console.log('✓ Carla (the safe box) pressed panic for Ana: the money is in Carla\'s wallet; Bea sees it failed')
 
   await screen.locator('.tile', { hasText: ANA }).getByText('Salvado').waitFor({ timeout: 20000 })
   await screen.getByText(`${BEA} ha vaciado la cartera caliente de ${ANA}`).waitFor()
-  const panics = await screen.getByText(`¡${ANA} ha pulsado el pánico!`).count()
+  const panics = await screen.getByText(`¡${CARLA} ha pulsado el pánico!`).count()
   if (panics !== 1) throw new Error(`the panic shows ${panics} times on /screen`)
   await shot(screen, '3-screen')
   console.log('✓ /screen shows each action exactly once')
