@@ -95,7 +95,7 @@ export function describe(e: FeedEvent): { icon: string; text: string; tone?: 'ho
         case 'vault_start':
           return { icon: '⏱', text: `${e.who} ha iniciado un retiro de su vault`, tone: 'hot' }
         case 'vault_to_cold':
-          return { icon: '🧊', text: `${e.who} ha mandado su vault a la caja fuerte`, tone: 'cold' }
+          return { icon: '🧊', text: `${e.who} ha mandado su vault a la cartera de recuperación`, tone: 'cold' }
         case 'vault_panic':
           return { icon: '🚨', text: `¡${e.who} ha pulsado el pánico!`, tone: 'cold' }
         case 'vault_withdraw':

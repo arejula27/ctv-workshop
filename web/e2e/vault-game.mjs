@@ -61,8 +61,8 @@ try {
 
   await enter(ana, ANA, /Protege tu dinero/)
   await ana.getByRole('button', { name: 'Crear cartera' }).click()
-  await ana.getByLabel('Caja fuerte').selectOption({ label: `La cartera de ${CARLA}` })
-  await ana.getByRole('button', { name: 'Configurar caja fuerte' }).click()
+  await ana.getByLabel('Cartera de recuperación').selectOption({ label: `La cartera de ${CARLA}` })
+  await ana.getByRole('button', { name: 'Configurar cartera de recuperación' }).click()
   await ana.getByRole('heading', { name: `La cartera de ${CARLA}` }).waitFor()
   await fund(ana, 'Cartera caliente')
   console.log('✓ wallets created; funded from /faucet with the address from "Recibir"')
@@ -109,7 +109,7 @@ try {
   await panicBtn.click()
   await panicBtn.click({ force: true, timeout: 2000 }).catch(() => {})
   await jump(1)
-  await ana.locator('.card .badge', { hasText: 'En la caja fuerte' }).waitFor({ timeout: 20000 })
+  await ana.locator('.card .badge', { hasText: 'En la cartera de recuperación' }).waitFor({ timeout: 20000 })
   await wallet(carla, 'Cartera caliente').locator('.amount', { hasText: '498.000 sats' }).waitFor({ timeout: 20000 })
   await victim.getByText('a salvo gracias al pánico').waitFor({ timeout: 20000 })
   // Ana's safe box shows only what came from her vaults
@@ -124,8 +124,8 @@ try {
   console.log('✓ /screen shows each action exactly once')
 
   // Round 2: Carla (now with 498.000 sats) uses a new safe box of her own, and doesn't react.
-  await carla.getByLabel('Caja fuerte').selectOption({ label: 'Crear una caja fuerte nueva' })
-  await carla.getByRole('button', { name: 'Configurar caja fuerte' }).click()
+  await carla.getByLabel('Cartera de recuperación').selectOption({ label: 'Crear una cartera de recuperación nueva' })
+  await carla.getByRole('button', { name: 'Configurar cartera de recuperación' }).click()
   await moveToVault(carla, 300000, 3)
   const victim2 = bea.locator('section.victim', { hasText: `Cartera caliente de ${CARLA}` })
   await victim2.locator('.card').getByRole('button', { name: 'Iniciar retiro' }).click()
@@ -144,7 +144,7 @@ try {
   await phone.goto(BASE + '/')
   await phone.evaluate((s) => Object.entries(s).forEach(([k, v]) => localStorage.setItem(k, v)), await ana.evaluate(() => ({ ...localStorage })))
   await phone.goto(BASE + '/vault')
-  await phone.locator('.card .badge', { hasText: 'En la caja fuerte' }).waitFor({ timeout: 20000 })
+  await phone.locator('.card .badge', { hasText: 'En la cartera de recuperación' }).waitFor({ timeout: 20000 })
   await shot(phone, '5-phone')
   console.log('✓ phone layout')
 } catch (e) {

@@ -60,7 +60,7 @@
 
   function labelOf(address: string): string | undefined {
     if (address === hot?.main_address) return 'tu cartera caliente'
-    if (address === safeAddress) return safe?.kind === 'friend' ? `cartera de ${safe.owner}` : 'tu caja fuerte'
+    if (address === safeAddress) return safe?.kind === 'friend' ? `cartera de ${safe.owner}` : 'tu cartera de recuperación'
     for (const v of myVaults) {
       const view = core.view(v.params, v.outpoint)
       if (address === view.address || address === view.leaves[0].tx?.outputs[0].contract?.address) return 'vault'
@@ -110,9 +110,9 @@
 
 <div class="grid">
   {#if hot && vaultGame.hot}
-    <WalletPanel bind:this={hotPanel} bind:balance={hotBalance} title="Cartera caliente" subtitle="Tu día a día. La llave vive en tu móvil." seed={vaultGame.hot.seed} tone="hot" {labelOf}>
+    <WalletPanel bind:this={hotPanel} bind:balance={hotBalance} title="Cartera caliente" seed={vaultGame.hot.seed} tone="hot" {labelOf}>
       {#snippet actions()}
-        <button onclick={() => (moving = true)} disabled={!safe || hotBalance === 0} title={safe ? '' : 'Configura antes la caja fuerte'}>Mover al vault</button>
+        <button onclick={() => (moving = true)} disabled={!safe || hotBalance === 0} title={safe ? '' : 'Configura antes la cartera de recuperación'}>Mover al vault</button>
       {/snippet}
     </WalletPanel>
   {:else}
@@ -125,10 +125,10 @@
   {/if}
 
   {#if safe?.kind === 'own'}
-    <WalletPanel title="Caja fuerte" subtitle="La llave está en un papel, guardada en casa." seed={safe.seed} tone="cold" {labelOf} />
+    <WalletPanel title="Cartera de recuperación" seed={safe.seed} tone="cold" {labelOf} />
   {:else if safe?.kind === 'friend'}
     <section class="panel cold">
-      <div class="eyebrow"><span class="dot cold"></span>Caja fuerte</div>
+      <div class="eyebrow"><span class="dot cold"></span>Cartera de recuperación</div>
       <h2>La cartera de {safe.owner}</h2>
       <p class="muted">Una persona de confianza. Si pulsas el pánico, el dinero irá a su cartera.</p>
       <span class="mono addr">{short(safe.address, 10)}</span>
@@ -139,17 +139,17 @@
     </section>
   {:else}
     <section class="panel cold setup">
-      <div class="eyebrow"><span class="dot cold"></span>Caja fuerte</div>
+      <div class="eyebrow"><span class="dot cold"></span>Cartera de recuperación</div>
       <h2>¿A dónde va el dinero en una emergencia?</h2>
       <p class="muted">Una llave que casi nunca se usa: en papel, en casa, o en manos de alguien de confianza.</p>
       <label>
-        Caja fuerte
+        Cartera de recuperación
         <select bind:value={safeChoice}>
-          <option value="new">Crear una caja fuerte nueva</option>
+          <option value="new">Crear una cartera de recuperación nueva</option>
           {#each friends as f (f.address)}<option value={f.address}>La cartera de {f.owner}</option>{/each}
         </select>
       </label>
-      <button class="secondary" onclick={chooseSafe}>Configurar caja fuerte</button>
+      <button class="secondary" onclick={chooseSafe}>Configurar cartera de recuperación</button>
     </section>
   {/if}
 </div>
@@ -165,7 +165,7 @@
 
 {#if guarded.length}
   <h2 class="section">Vaults que proteges</h2>
-  <p class="muted guard-hint">Tu cartera caliente es la caja fuerte de estas personas. Si alguien inicia un retiro de su vault, puedes pulsar el pánico por ellas.</p>
+  <p class="muted guard-hint">Tu cartera caliente es la cartera de recuperación de estas personas. Si alguien inicia un retiro de su vault, puedes pulsar el pánico por ellas.</p>
   {#each guarded as v (v.outpoint)}
     <VaultCard params={v.params} outpoint={v.outpoint} role="guardian" owner={v.owner} secret="" destination="" />
   {/each}
@@ -173,7 +173,7 @@
 
 {#if moving}
   <Modal title="Mover al vault" onclose={() => (moving = false)}>
-    <p class="muted">Desde un vault, el dinero solo puede volver a tu cartera caliente <b>después de una espera</b>, o ir <b>al instante</b> a tu caja fuerte.</p>
+    <p class="muted">Desde un vault, el dinero solo puede volver a tu cartera caliente <b>después de una espera</b>, o ir <b>al instante</b> a tu cartera de recuperación.</p>
     <form onsubmit={moveToVault}>
       <label>
         Cantidad (sats)

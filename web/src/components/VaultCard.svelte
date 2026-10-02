@@ -77,7 +77,7 @@
   let links = $derived.by(() => {
     const out = [{ label: 'Depósito', txid: outpoint.split(':')[0] }]
     const root = st.map.get(outpoint)
-    if (root?.spentBy) out.push({ label: root.spentLeaf === 0 ? 'Inicio del retiro' : 'A la caja fuerte', txid: root.spentBy })
+    if (root?.spentBy) out.push({ label: root.spentLeaf === 0 ? 'Inicio del retiro' : 'A la cartera de recuperación', txid: root.spentBy })
     if (unvault?.spentBy)
       out.push({ label: phase === 'hot' ? (hotByMe ? (isThief ? 'Robo' : 'Retiro') : 'Vaciado') : 'Pánico', txid: unvault.spentBy })
     return out
@@ -99,7 +99,7 @@
       <span class="badge">espera {params.delay} bloques · {simDuration(params.delay, chain.simBlock)}</span>
       {#if phase === 'locked'}<span class="badge ok">Protegido</span>
       {:else if phase === 'withdrawing'}<span class="badge hot">Retiro en curso</span>
-      {:else if phase === 'cold' || phase === 'panicked'}<span class="badge cold">En la caja fuerte</span>
+      {:else if phase === 'cold' || phase === 'panicked'}<span class="badge cold">En la cartera de recuperación</span>
       {:else if phase === 'hot'}<span class="badge">{hotByMe ? 'Retirado' : 'Vaciado'}</span>
       {:else}<span class="badge">Confirmando…</span>{/if}
     </div>
@@ -157,9 +157,9 @@
         {/if}
       </div>
       <div class="side cold">
-        <div class="eyebrow"><span class="dot cold"></span>Hacia la caja fuerte</div>
+        <div class="eyebrow"><span class="dot cold"></span>Hacia la cartera de recuperación</div>
         {#if isGuardian && phase === 'locked'}
-          <p>Eres su caja fuerte. Si alguien inicia un retiro, podrás pulsar el pánico por {owner}: el dinero vendría a tu cartera.</p>
+          <p>Tu cartera es su cartera de recuperación. Si alguien inicia un retiro, podrás pulsar el pánico por {owner}: el dinero vendría a tu cartera.</p>
         {:else if isGuardian && phase === 'withdrawing'}
           <p><b>Alguien está sacando el vault de {owner}.</b> El pánico no necesita ninguna firma: púlsalo y el dinero vendrá a tu cartera.</p>
           <button class="cold" onclick={panic} disabled={locked}>Botón del pánico</button>
@@ -167,9 +167,9 @@
           <p class="muted">Fuera de tu alcance. Si {owner} pulsa el pánico, el dinero acaba aquí.</p>
         {:else if phase === 'locked'}
           <p>Al instante, sin esperas.</p>
-          <button class="secondary" onclick={toCold} disabled={locked}>Mandar a la caja fuerte</button>
+          <button class="secondary" onclick={toCold} disabled={locked}>Mandar a la cartera de recuperación</button>
         {:else if phase === 'withdrawing'}
-          <p><b>¿No has sido tú?</b> Alguien tiene tu llave caliente. El botón del pánico lo manda todo a la caja fuerte y nadie puede impedirlo.</p>
+          <p><b>¿No has sido tú?</b> Alguien tiene tu llave caliente. El botón del pánico lo manda todo a la cartera de recuperación y nadie puede impedirlo.</p>
           <button class="cold" onclick={panic} disabled={locked}>Botón del pánico</button>
         {:else if phase === 'cold' || phase === 'panicked'}
           <p><b>{sats(params.amount_sat - (phase === 'cold' ? 1 : 2) * params.fee_sat)}</b> a salvo{phase === 'panicked' ? ' gracias al pánico' : ''}.</p>
