@@ -406,7 +406,7 @@ Atribución en `vendor-notes/` y en la cabecera de cada archivo copiado.
   terminar, retiro con la llave caliente **a cualquier dirección** (por defecto la cartera), sin el árbol del contrato.
 - Estilo: sin bordes de color; el tono es un punto junto al título.
 - Tests UI con red del host (como el navegador de un participante); el del pool abre un enlace del explorador.
-- Pendiente: quitar la pestaña "Cartera" (dar cartera propia a herencia y suscripción) y pasar toda la batería antes del commit.
+- La pestaña "Cartera" (cartera general usada por herencia y suscripción) **se mantiene por ahora** (decisión 2026-10-02).
 
 ### Estilo unificado y guardianes (2026-10-02)
 - Herencia, suscripción y admin con el mismo estilo que el vault: tarjetas neutras, etiquetas de estado, lista
