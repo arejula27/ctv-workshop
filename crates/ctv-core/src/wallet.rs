@@ -137,6 +137,27 @@ impl Wallet {
         self.sign(tx, &selected)
     }
 
+    /// Sends everything we own in `utxos` to `to`, minus the fee (a thief emptying a wallet).
+    pub fn sweep(&self, utxos: &[Utxo], to: ScriptBuf) -> Result<Transaction, Error> {
+        let ours: Vec<Utxo> =
+            utxos.iter().filter(|u| self.role_of(&u.script_pubkey).is_some()).cloned().collect();
+        let total: Amount = ours.iter().map(|u| u.value).sum();
+        let value = total
+            .checked_sub(estimate_fee(ours.len(), 1))
+            .filter(|v| *v >= DUST)
+            .ok_or_else(|| Error::Amount(format!("not enough funds: have {total}")))?;
+        let tx = Transaction {
+            version: Version::TWO,
+            lock_time: LockTime::ZERO,
+            input: ours
+                .iter()
+                .map(|u| TxIn { previous_output: u.outpoint, ..Default::default() })
+                .collect(),
+            output: vec![TxOut { value, script_pubkey: to }],
+        };
+        self.sign(tx, &ours)
+    }
+
     /// Key-path signs every input; `prevouts` in input order.
     fn sign(&self, mut tx: Transaction, prevouts: &[Utxo]) -> Result<Transaction, Error> {
         let txouts: Vec<TxOut> = prevouts
@@ -225,6 +246,25 @@ mod tests {
         let fee = Amount::from_sat(50_000) - tx.output.iter().map(|o| o.value).sum();
         assert_eq!(fee, estimate_fee(1, 2));
         assert_eq!(tx.input[0].witness.len(), 1);
+    }
+
+    #[test]
+    fn sweep_takes_everything_minus_the_fee() {
+        let w = wallet();
+        let to = Wallet::from_seed([8; 32]).script_pubkey(Role::Main);
+        let other = Wallet::from_seed([9; 32]);
+        let utxos = [
+            utxo(&w, Role::Main, 50_000, 1),
+            utxo(&w, Role::Main, 20_000, 2),
+            utxo(&other, Role::Main, 99, 3),
+        ];
+        let tx = w.sweep(&utxos, to.clone()).unwrap();
+        assert_eq!(tx.input.len(), 2, "only our coins");
+        assert_eq!(
+            tx.output,
+            vec![TxOut { value: Amount::from_sat(70_000) - estimate_fee(2, 1), script_pubkey: to }]
+        );
+        assert!(w.sweep(&[], ScriptBuf::new()).is_err());
     }
 
     #[test]

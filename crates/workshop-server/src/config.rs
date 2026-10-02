@@ -22,6 +22,8 @@ pub struct Config {
     pub registry_path: Option<std::path::PathBuf>,
     /// Seconds per block on the simulated calendar (600 = like real Bitcoin).
     pub sim_block_s: u64,
+    /// Public URL of the block explorer, for transaction links in the app.
+    pub explorer_url: String,
 }
 
 pub const MIN_MINER_INTERVAL: Duration = Duration::from_secs(2);
@@ -51,6 +53,7 @@ impl Config {
             max_jump: parse("MAX_JUMP", 1000)?,
             registry_path: var("REGISTRY_PATH").map(Into::into),
             sim_block_s: parse("SIM_BLOCK_S", 600)?,
+            explorer_url: var("EXPLORER_URL").unwrap_or_default(),
         })
     }
 }

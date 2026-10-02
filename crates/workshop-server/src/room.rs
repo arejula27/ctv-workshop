@@ -3,22 +3,27 @@
 //! Nothing here is trusted blindly: contracts are recomputed with `ctv-core` and
 //! checked against the chain, and activities must point at a real transaction.
 
-use std::{str::FromStr, sync::Arc};
+use std::{
+    str::FromStr,
+    sync::Arc,
+    time::{SystemTime, UNIX_EPOCH},
+};
 
 use axum::{Json, extract::State};
-use bitcoin::{Address, Amount, OutPoint, ScriptBuf, XOnlyPublicKey};
+use bitcoin::{Address, Amount, OutPoint, ScriptBuf, XOnlyPublicKey, hex::FromHex};
 use ctv_core::contracts::{
     inheritance::{Heir, Inheritance, InheritanceParams},
     subscription::{Subscription, SubscriptionParams},
     vault::{Vault, VaultParams as CoreParams},
 };
+use ctv_core::wallet::{Role, Wallet};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
 use crate::{
     api::{ApiError, ApiResult, AppState, regtest_address},
     events::{ActivityKind, Event},
-    registry::{ContractEntry, ContractKind, Participant, VaultEntry, VaultParams},
+    registry::{ContractEntry, ContractKind, HotWallet, Participant, VaultEntry, VaultParams},
 };
 
 const MAX_NAME: usize = 24;
@@ -122,9 +127,12 @@ fn rebuild(p: &VaultParams) -> Result<Vault, ApiError> {
 pub struct ActivityReq {
     who: String,
     kind: ActivityKind,
-    /// The vault's funding outpoint.
+    /// The vault's funding outpoint, a contract or pool id, or a hot wallet address.
     outpoint: String,
     txid: String,
+    /// Only for wallet sweeps, where there's no registered amount.
+    #[serde(default)]
+    amount_sat: Option<u64>,
 }
 
 pub async fn activity(
@@ -138,6 +146,11 @@ pub async fn activity(
         Some(v) => (v.owner, v.params.amount_sat, v.outpoint),
         None if let Some(t) = state.registry.pool(&req.outpoint).await => {
             (t.host, t.share_sat, t.id)
+        }
+        None if let Some(w) =
+            state.registry.hot_wallets().await.into_iter().find(|w| w.address == req.outpoint) =>
+        {
+            (w.owner, req.amount_sat.unwrap_or_default(), w.address)
         }
         None => {
             let c = state
@@ -153,6 +166,10 @@ pub async fn activity(
     };
     // Must be a transaction the node has actually seen.
     get_tx(&state, &req.txid).await?;
+    // One event per transaction: clicking twice (or rebroadcasting) mustn't repeat it.
+    if !state.seen_activity.lock().await.insert(req.txid.clone()) {
+        return Ok(Json(json!({ "ok": true, "duplicate": true })));
+    }
     let _ = state.chain.events.send(Event::Activity {
         who,
         kind: req.kind,
@@ -162,6 +179,44 @@ pub async fn activity(
         txid: req.txid,
     });
     Ok(Json(json!({ "ok": true })))
+}
+
+// ---------- hot wallets (vault game) ----------
+
+#[derive(Deserialize)]
+pub struct HotWalletReq {
+    owner: String,
+    seed: String,
+}
+
+/// Publishes a hot wallet with its seed, so thieves can try their luck.
+pub async fn register_hot_wallet(
+    State(state): State<Arc<AppState>>,
+    Json(req): Json<HotWalletReq>,
+) -> ApiResult<Value> {
+    let owner = clean_name(&req.owner)?;
+    let seed = <[u8; 32]>::from_hex(req.seed.trim())
+        .map_err(|_| ApiError::bad_request("seed must be 32 bytes of hex"))?;
+    // Derive everything from the seed so nobody can publish a mismatched wallet.
+    let w = Wallet::from_seed(seed);
+    let address = w.address(Role::Main, bitcoin::Network::Regtest).to_string();
+    let pubkey = w.keypair(Role::Main).x_only_public_key().0.to_string();
+    let entry = HotWallet {
+        owner: owner.clone(),
+        address: address.clone(),
+        pubkey,
+        seed: req.seed.trim().to_lowercase(),
+        created_at: SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_millis()
+            as u64,
+    };
+    if state.registry.add_hot_wallet(entry).await {
+        let _ = state.chain.events.send(Event::HotWalletCreated { owner });
+    }
+    Ok(Json(json!({ "address": address })))
+}
+
+pub async fn hot_wallets(State(state): State<Arc<AppState>>) -> Json<Vec<HotWallet>> {
+    Json(state.registry.hot_wallets().await)
 }
 
 // ---------- inheritances and subscriptions ----------

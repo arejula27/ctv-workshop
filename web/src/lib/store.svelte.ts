@@ -81,6 +81,10 @@ export const chain = $state({
   contractsTick: 0,
   /** Bumped when a pool table changes. */
   poolsTick: 0,
+  /** Bumped when someone publishes a hot wallet (vault game). */
+  walletsTick: 0,
+  /** Block explorer base URL for transaction links. */
+  explorerUrl: '',
   /** The demo the presenter has on screen now. */
   demo: 'vault' as Demo,
   /** Simulated calendar (see Status). */
@@ -116,6 +120,7 @@ export function startChain() {
           chain.simEpoch = e.status.sim_epoch_s
           chain.simBlock = e.status.sim_block_s
           chain.demo = e.status.demo
+          chain.explorerUrl = e.status.explorer_url
           chain.tick++
           break
         case 'block':
@@ -136,6 +141,7 @@ export function startChain() {
         if (e.type === 'vault_registered') chain.vaultsTick++
         if (e.type === 'contract_registered') chain.contractsTick++
         if (e.type === 'pool_updated') chain.poolsTick++
+        if (e.type === 'hot_wallet_created') chain.walletsTick++
       }
     },
     (open) => (chain.connected = open),
@@ -218,3 +224,34 @@ export function removeContract(id: string) {
 }
 
 export type { ContractKind }
+
+// ---------- vault game ----------
+
+/** The safe box: a wallet of our own, or a friend's hot wallet. */
+export type SafeBox =
+  | { kind: 'own'; seed: string }
+  | { kind: 'friend'; owner: string; address: string; pubkey: string }
+
+export type VaultGame = {
+  role: 'owner' | 'thief' | null
+  /** Owner: the everyday wallet that can be stolen. */
+  hot?: { seed: string }
+  safe?: SafeBox
+  /** Thief: where the loot goes. */
+  thief?: { seed: string }
+}
+
+export const vaultGame = $state<VaultGame>(load<VaultGame>('ctv.vaultgame', { role: null }))
+
+export function saveVaultGame(patch: Partial<VaultGame>) {
+  Object.assign(vaultGame, patch)
+  save('ctv.vaultgame', $state.snapshot(vaultGame))
+}
+
+// Transactions we broadcast ourselves, to tell our own withdrawal from a theft.
+const mineTxids = $state<{ list: string[] }>({ list: load<string[]>('ctv.mytxids', []) })
+export const isMine = (txid: string | undefined) => !!txid && mineTxids.list.includes(txid)
+export function markMine(txid: string) {
+  mineTxids.list = [...mineTxids.list, txid]
+  save('ctv.mytxids', mineTxids.list)
+}

@@ -14,6 +14,7 @@ export type Status = {
   sim_epoch_s: number
   sim_block_s: number
   demo: Demo
+  explorer_url: string
 }
 
 export type FeedEvent =
@@ -22,6 +23,7 @@ export type FeedEvent =
   | { type: 'jump'; blocks: number; height: number }
   | { type: 'participant_joined'; name: string }
   | { type: 'demo_changed'; demo: Demo }
+  | { type: 'hot_wallet_created'; owner: string }
   | { type: 'vault_registered'; owner: string; amount_sat: number; delay: number; outpoint: string }
   | {
       type: 'contract_registered'

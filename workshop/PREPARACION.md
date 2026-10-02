@@ -54,6 +54,10 @@ Lo que hay que hacer antes de empezar, en orden. Los comandos se lanzan desde la
 
 ## Durante
 
+- **Fondos**: no hay botón de faucet en la app. Cada persona pulsa **Recibir** en su cartera, copia la dirección y la
+  pega en `http://<IP>:8080/faucet`.
+- **Vault**: al entrar, cada persona elige papel (usuaria o ladrona). Conviene que primero creen su cartera caliente
+  todas las usuarias, así pueden elegirse como caja fuerte entre ellas.
 - **Al pasar a otra demo**, cámbiala en `/admin`. El proyector cambia de tablero y en la app de cada persona
   aparece un ● en la pestaña de la demo nueva.
 - **Saltos de tiempo** desde `/admin`: `+144` bloques = 1 día en el calendario.

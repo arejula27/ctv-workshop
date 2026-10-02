@@ -362,6 +362,27 @@ Atribución en `vendor-notes/` y en la cabecera de cada archivo copiado.
   (eventos de esa demo + los generales). En la app de cada participante, un ● marca la pestaña de la demo actual.
 - Fuera de alcance (decidido): guion/hoja/slides, despliegue en VPS y ensayo general.
 
+### Revisión del vault tras probarlo (2026-10-02)
+- **Wallet de verdad**: al entrar eliges papel (*Usuaria* / *Ladrona*). Cada cartera tiene su propia semilla
+  (el nombre solo identifica en la sala). `WalletPanel` común: saldo, **Recibir / Enviar** (con "Todo"), historial
+  con enlace al explorador (`EXPLORER_URL` o mismo host:5000).
+- Usuaria: cartera caliente ("Crear cartera"; su semilla se publica en `/api/wallets` a propósito) + caja fuerte
+  (nueva, o **la cartera caliente de un amigo**: el pánico paga a su cartera). "Mover al vault" desde la caliente.
+- Ladrona: su cartera + **semillas filtradas** de todas las calientes: "Vaciar cartera" (`Wallet::sweep`) y atacar
+  sus vaults en cualquier momento.
+- **Sin botón de faucet**: página `/faucet` (pegas la dirección de "Recibir"). La pestaña Cartera también es un `WalletPanel`.
+- **Eventos únicos**: el server ignora actividad repetida por txid; los botones del vault quedan bloqueados hasta
+  que la cadena refleja la acción. El test lo comprueba (pánico pulsado dos veces → una sola línea en `/screen`).
+- UI más sobria: Inter + JetBrains Mono empaquetadas (sin internet), tarjetas blancas, acentos en vez de rellenos.
+- **Robustez**: bitcoind con IP fija (`10.231.0.10`): electrs resuelve el nombre una sola vez y, si bitcoind volvía con
+  otra IP (reinicio de Docker Desktop), esplora se quedaba congelado. Verificado reiniciando bitcoind.
+- Tests: `vault-game.mjs` reescrito (3 navegadores + proyector, dos rondas); `contracts-game.mjs` pausa el reloj
+  automático mientras cuenta bloques.
+
+### Siguiente: payment pool como wallet (pendiente de decidir el diseño)
+- Cartera con dos cuentas, **on-chain** e **instantánea** (dentro del pool), ambas con enviar y recibir; ver evolucionar
+  el pool en esplora; salir con el saldo actual, no el inicial.
+
 ### Notas de entorno
 - En este Docker hay otros stacks regtest (btcpay, arkd, mempool…) usando 18443, 3000, 50001… → nuestro RPC de depuración está en 18543.
 - Tests: `infra/scripts/test-regtest.sh` (contratos) y `infra/scripts/test-ui.sh` (partida con dos navegadores).

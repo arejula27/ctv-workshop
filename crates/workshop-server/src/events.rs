@@ -48,6 +48,9 @@ pub enum Event {
     DemoChanged {
         demo: crate::registry::Demo,
     },
+    HotWalletCreated {
+        owner: String,
+    },
     VaultRegistered {
         owner: String,
         amount_sat: u64,
@@ -99,6 +102,8 @@ pub enum ActivityKind {
     SubscriptionPay,
     SubscriptionCancel,
     PoolExit,
+    /// A thief emptied someone's hot wallet with its leaked seed.
+    WalletSwept,
 }
 
 impl Event {

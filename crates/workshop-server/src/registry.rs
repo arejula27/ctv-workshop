@@ -103,6 +103,17 @@ pub enum Demo {
     Pool,
 }
 
+/// A participant's hot wallet in the vault game. Its seed is public on purpose:
+/// it's what the thieves get to play with.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct HotWallet {
+    pub owner: String,
+    pub address: String,
+    pub pubkey: String,
+    pub seed: String,
+    pub created_at: u64,
+}
+
 #[derive(Default, Serialize, Deserialize)]
 struct Data {
     /// Keyed by the participant's main address.
@@ -116,6 +127,9 @@ struct Data {
     pools: BTreeMap<String, PoolTable>,
     #[serde(default)]
     demo: Demo,
+    /// Keyed by address.
+    #[serde(default)]
+    hot_wallets: BTreeMap<String, HotWallet>,
 }
 
 pub struct Registry {
@@ -202,6 +216,23 @@ impl Registry {
     pub async fn contracts(&self) -> Vec<ContractEntry> {
         let mut list: Vec<_> = self.data.read().await.contracts.values().cloned().collect();
         list.sort_by_key(|c| c.registered_at);
+        list
+    }
+
+    /// Returns true when the wallet is new.
+    pub async fn add_hot_wallet(&self, w: HotWallet) -> bool {
+        let mut data = self.data.write().await;
+        if data.hot_wallets.contains_key(&w.address) {
+            return false;
+        }
+        data.hot_wallets.insert(w.address.clone(), w);
+        self.persist(&data);
+        true
+    }
+
+    pub async fn hot_wallets(&self) -> Vec<HotWallet> {
+        let mut list: Vec<_> = self.data.read().await.hot_wallets.values().cloned().collect();
+        list.sort_by_key(|w| w.created_at);
         list
     }
 

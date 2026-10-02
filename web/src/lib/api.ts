@@ -32,6 +32,7 @@ export type ActivityKind =
   | 'subscription_pay'
   | 'subscription_cancel'
   | 'pool_exit'
+  | 'wallet_swept'
 
 export const joinRoom = (name: string, address: string) =>
   call('POST', '/api/participants', { name, address })
@@ -56,8 +57,16 @@ export const registerContract = (
 export const listContracts = () => call<ContractEntry[]>('GET', '/api/contracts')
 
 /** `outpoint`: a vault's funding outpoint, or a contract's id. */
-export const reportActivity = (who: string, kind: ActivityKind, outpoint: string, txid: string) =>
-  call('POST', '/api/activity', { who, kind, outpoint, txid })
+export const reportActivity = (who: string, kind: ActivityKind, outpoint: string, txid: string, amount_sat?: number) =>
+  call('POST', '/api/activity', { who, kind, outpoint, txid, amount_sat })
+
+// ---------- hot wallets (vault game) ----------
+
+/** A hot wallet with its seed, public on purpose: thieves play with it. */
+export type HotWallet = { owner: string; address: string; pubkey: string; seed: string; created_at: number }
+export const registerHotWallet = (owner: string, seed: string) =>
+  call<{ address: string }>('POST', '/api/wallets', { owner, seed })
+export const listHotWallets = () => call<HotWallet[]>('GET', '/api/wallets')
 
 // ---------- pool tables ----------
 

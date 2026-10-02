@@ -58,6 +58,20 @@ pub fn wallet_info(seed_hex: &str) -> JsResult {
     })
 }
 
+/// Secret of a wallet's main key: what signs a vault's hot withdrawal when the
+/// wallet is the vault's hot wallet (and what a thief gets from a leaked seed).
+#[wasm_bindgen]
+pub fn wallet_secret(seed_hex: &str) -> Result<String, JsError> {
+    Ok(wallet(seed_hex)?.keypair(Role::Main).display_secret().to_string())
+}
+
+/// Everything in `utxos` that belongs to the wallet, to `to_address`, minus the fee.
+#[wasm_bindgen]
+pub fn wallet_sweep(seed_hex: &str, utxos: JsValue, to_address: &str) -> JsResult {
+    let w = wallet(seed_hex)?;
+    signed(w.sweep(&utxos_from_js(utxos)?, address(to_address)?).map_err(err)?)
+}
+
 /// The hot key's secret, for the "someone stole my hot key" game.
 #[wasm_bindgen]
 pub fn hot_secret(seed_hex: &str) -> Result<String, JsError> {
@@ -88,8 +102,13 @@ struct SignedTx {
 #[wasm_bindgen]
 pub fn wallet_send(seed_hex: &str, utxos: JsValue, to_address: &str, amount_sat: u64) -> JsResult {
     let w = wallet(seed_hex)?;
+    let utxos = utxos_from_js(utxos)?;
+    signed(w.send(&utxos, address(to_address)?, Amount::from_sat(amount_sat)).map_err(err)?)
+}
+
+fn utxos_from_js(utxos: JsValue) -> Result<Vec<Utxo>, JsError> {
     let utxos: Vec<JsUtxo> = from_js(utxos)?;
-    let utxos = utxos
+    utxos
         .into_iter()
         .map(|u| {
             Ok(Utxo {
@@ -98,8 +117,7 @@ pub fn wallet_send(seed_hex: &str, utxos: JsValue, to_address: &str, amount_sat:
                 script_pubkey: address(&u.address)?,
             })
         })
-        .collect::<Result<Vec<_>, JsError>>()?;
-    signed(w.send(&utxos, address(to_address)?, Amount::from_sat(amount_sat)).map_err(err)?)
+        .collect()
 }
 
 // ---------- vault ----------

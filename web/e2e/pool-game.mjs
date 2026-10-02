@@ -20,7 +20,7 @@ for (const p of all) p.on('pageerror', (e) => console.log('PAGE ERROR', e.messag
 async function onboard(p, name) {
   await p.goto(BASE + '/')
   await p.getByPlaceholder('Tu nombre').fill(name)
-  await p.getByRole('button', { name: 'Crear mi cartera' }).click()
+  await p.getByRole('button', { name: 'Entrar' }).click()
   await p.getByRole('heading', { name: `Hola, ${name}` }).waitFor()
   await p.getByRole('link', { name: 'Pool' }).click()
 }

@@ -9,6 +9,12 @@ services:
       - bitcoind-data:/home/bitcoin/.bitcoin
     ports:
       - "127.0.0.1:${RPC_DEBUG_PORT:-18543}:18443" # RPC only on localhost, for debugging
+    # Fixed IP: electrs resolves "bitcoind" once at startup and never retries, so a
+    # bitcoind that comes back with a new IP (e.g. Docker Desktop restart) would leave
+    # esplora stuck on an old block.
+    networks:
+      default:
+        ipv4_address: 10.231.0.10
     healthcheck:
       test: ["CMD", "bitcoin-cli", "-regtest", "-rpcuser=${RPC_USER}", "-rpcpassword=${RPC_PASS}", "getblockcount"]
       interval: 3s
@@ -61,6 +67,7 @@ services:
       FAUCET_AMOUNT_SAT: ${FAUCET_AMOUNT_SAT:-1000000}
       FAUCET_COOLDOWN_S: ${FAUCET_COOLDOWN_S:-60}
       REGISTRY_PATH: /data/registry.json
+      EXPLORER_URL: ${EXPLORER_URL:-}
     volumes:
       - server-data:/data
     depends_on:
@@ -81,6 +88,12 @@ services:
       - caddy-data:/data
     depends_on: [server, electrs]
     restart: unless-stopped
+
+networks:
+  default:
+    ipam:
+      config:
+        - subnet: 10.231.0.0/24 # unusual, so it doesn't clash with other stacks
 
 volumes:
   server-data:

@@ -49,6 +49,10 @@ export function newSeed(): string {
 
 export const walletInfo = (seed: string): WalletInfo => wasm.wallet_info(seed)
 export const hotSecret = (seed: string): string => wasm.hot_secret(seed)
+/** Secret of a wallet's main key (signs a vault's hot withdrawal; what a thief gets from a leaked seed). */
+export const walletSecret = (seed: string): string => wasm.wallet_secret(seed)
+/** Everything the wallet owns in `utxos`, to `to`, minus the fee. */
+export const walletSweep = (seed: string, utxos: Utxo[], to: string): SignedTx => wasm.wallet_sweep(seed, utxos, to)
 export const secretPubkey = (secret: string): string => wasm.secret_pubkey(secret)
 export const walletSend = (seed: string, utxos: Utxo[], to: string, sats: number): SignedTx =>
   wasm.wallet_send(seed, utxos, to, BigInt(sats))

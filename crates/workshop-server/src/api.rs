@@ -1,5 +1,5 @@
 use std::{
-    collections::{HashMap, VecDeque},
+    collections::{HashMap, HashSet, VecDeque},
     str::FromStr,
     sync::Arc,
     time::{Duration, Instant},
@@ -34,12 +34,21 @@ pub struct AppState {
     pub registry: Registry,
     /// Latest feed events, replayed to new WebSocket clients.
     pub recent: Mutex<VecDeque<Event>>,
+    /// Txids already announced as activity, so a repeated report is ignored.
+    pub seen_activity: Mutex<HashSet<String>>,
     faucet_last: Mutex<HashMap<String, Instant>>,
 }
 
 impl AppState {
     pub fn new(config: Config, chain: Arc<Chain>, registry: Registry) -> Self {
-        Self { config, chain, registry, recent: Mutex::default(), faucet_last: Mutex::default() }
+        Self {
+            config,
+            chain,
+            registry,
+            recent: Mutex::default(),
+            seen_activity: Mutex::default(),
+            faucet_last: Mutex::default(),
+        }
     }
 }
 
@@ -58,6 +67,7 @@ pub fn router(state: Arc<AppState>) -> Router {
         .route("/api/participants", get(room::participants).post(room::join))
         .route("/api/vaults", get(room::vaults).post(room::register_vault))
         .route("/api/contracts", get(room::contracts).post(room::register_contract))
+        .route("/api/wallets", get(room::hot_wallets).post(room::register_hot_wallet))
         .route("/api/pools", get(pools::list).post(pools::create))
         .route("/api/pools/{id}/join", post(pools::join))
         .route("/api/pools/{id}/start", post(pools::start))
@@ -116,6 +126,8 @@ pub struct Status {
     pub sim_block_s: u64,
     /// The demo the room is playing now.
     pub demo: Demo,
+    /// Base URL of the block explorer, for transaction links (empty: same host, port 5000).
+    pub explorer_url: String,
 }
 
 pub async fn status_snapshot(state: &AppState) -> anyhow::Result<Status> {
@@ -131,6 +143,7 @@ pub async fn status_snapshot(state: &AppState) -> anyhow::Result<Status> {
         sim_epoch_s: state.chain.sim_epoch_s(),
         sim_block_s: state.config.sim_block_s,
         demo,
+        explorer_url: state.config.explorer_url.clone(),
     })
 }
 

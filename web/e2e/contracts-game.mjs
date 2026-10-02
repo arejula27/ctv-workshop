@@ -10,6 +10,10 @@ const tag = Math.random().toString(36).slice(2, 6)
 const ANA = `Ana ${tag}`, BEA = `Bea ${tag}`
 const setDemo = (demo) =>
   fetch(`${BASE}/api/admin/demo`, { method: 'PUT', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${process.env.ADMIN_TOKEN}` }, body: JSON.stringify({ demo }) })
+// The test counts blocks exactly: pause the automatic clock and mine by hand.
+const miner = (paused) =>
+  fetch(`${BASE}/api/admin/miner`, { method: 'PUT', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${process.env.ADMIN_TOKEN}` }, body: JSON.stringify({ paused }) })
+await miner(true)
 const browser = await chromium.launch()
 const ctx = () => browser.newContext({ viewport: { width: 1100, height: 900 } })
 const ana = await (await ctx()).newPage(), bea = await (await ctx()).newPage()
@@ -21,14 +25,22 @@ try {
   async function onboard(p, name) {
     await p.goto(BASE + '/')
     await p.getByPlaceholder('Tu nombre').fill(name)
-    await p.getByRole('button', { name: 'Crear mi cartera' }).click()
+    await p.getByRole('button', { name: 'Entrar' }).click()
     await p.getByRole('heading', { name: `Hola, ${name}` }).waitFor()
   }
   await onboard(ana, ANA); await onboard(bea, BEA)
-  await ana.getByRole('button', { name: 'Pedir sats al faucet' }).click()
-  await ana.getByText('¡Recibidos').waitFor()
+  // Receive → /faucet, like a real wallet
+  await ana.getByRole('button', { name: 'Recibir' }).click()
+  const address = (await ana.locator('.address').innerText()).trim()
+  await ana.getByRole('button', { name: 'Cerrar' }).click()
+  const f = await ana.context().newPage()
+  await f.goto(BASE + '/faucet')
+  await f.getByLabel('Dirección').fill(address)
+  await f.getByRole('button', { name: 'Enviarme bitcoin de prueba' }).click()
+  await f.getByText(/Enviados/).waitFor()
+  await f.close()
   await mine(1)
-  await ana.locator('.wallet.hot .balance', { hasText: '1.000.000 sats' }).waitFor({ timeout: 15000 }) // indexed and spendable
+  await ana.locator('section.wallet .amount', { hasText: '1.000.000 sats' }).waitFor({ timeout: 20000 }) // indexed and spendable
 
   // ---------- inheritance ----------
   await setDemo('inheritance')
@@ -49,6 +61,8 @@ try {
 
   await mine(3)
   await ana.getByRole('button', { name: '💓 Sigo viva' }).click()
+  // the renewed inheritance (300.000 minus one fee) must be broadcast before the block
+  await ana.getByText('299.000 sats · se reparte').waitFor({ timeout: 15000 })
   await mine(1)
   await ana.getByText(/Si no das señales de vida en 4 bloques/).waitFor({ timeout: 15000 })
   await bea.getByText(new RegExp(`Si ${ANA} no da señales de vida en 4 bloques`)).waitFor({ timeout: 15000 })
@@ -99,5 +113,7 @@ try {
   await shot(ana, 'FAIL-ana').catch(() => {})
   await shot(bea, 'FAIL-bea').catch(() => {})
   throw e
+} finally {
+  await miner(false)
 }
 await browser.close()

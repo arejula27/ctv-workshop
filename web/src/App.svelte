@@ -12,6 +12,7 @@
   import Suscripcion from './routes/Suscripcion.svelte'
   import PoolPage from './routes/Pool.svelte'
   import Admin from './routes/Admin.svelte'
+  import Faucet from './routes/Faucet.svelte'
 
   let loaded = $state(false)
   let loadError = $state('')
@@ -57,10 +58,10 @@
 <header>
   <a class="brand" href="/wallet" onclick={(e) => { e.preventDefault(); navigate('/wallet') }}>CTV Workshop</a>
   <div class="clock" class:off={!chain.connected} title="Altura de la cadena">
-    <span class="date" title="Calendario simulado: 10 minutos por bloque, como en Bitcoin">📅 {date(simDate(chain.height))}</span>
-    ⛓ {chain.height || '—'}
+    <span class="date" title="Calendario simulado: 10 minutos por bloque, como en Bitcoin">{date(simDate(chain.height))}</span>
+    <span class="block">Bloque {chain.height || '—'}</span>
     <span class="muted">
-      {#if !chain.connected}desconectado{:else if chain.miner?.paused}⏸ pausa{:else if countdown != null}· {countdown}s{/if}
+      {#if !chain.connected}desconectado{:else if chain.miner?.paused}en pausa{:else if countdown != null}{countdown}s{/if}
     </span>
   </div>
 </header>
@@ -74,6 +75,8 @@
   <Screen />
 {:else if route.path === '/admin'}
   <main><Admin /></main>
+{:else if route.path === '/faucet'}
+  <Faucet />
 {:else if !me.id}
   <main><Onboarding /></main>
 {:else}
@@ -104,28 +107,38 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 0.75rem 1rem;
+    padding: 0 1.25rem;
+    height: 3.25rem;
     border-bottom: 1px solid var(--line);
     position: sticky;
     top: 0;
-    background: var(--bg);
-    z-index: 1;
+    background: var(--surface);
+    z-index: 2;
   }
-  .brand { font-weight: 700; color: var(--fg); text-decoration: none; }
-  .clock { font-variant-numeric: tabular-nums; font-weight: 600; display: flex; flex-wrap: wrap; gap: 0 0.75rem; justify-content: flex-end; }
-  .date { color: var(--fg); }
+  .brand { font-weight: 650; color: var(--fg); text-decoration: none; letter-spacing: -0.01em; }
+  .clock { font-variant-numeric: tabular-nums; font-size: 0.85rem; display: flex; flex-wrap: wrap; gap: 0 0.9rem; justify-content: flex-end; align-items: baseline; }
+  .date { font-weight: 600; }
+  .block { color: var(--muted); }
   .clock.off { color: var(--danger); }
-  nav { display: flex; gap: 0.25rem; padding: 0.5rem 1rem 0; max-width: 44rem; margin: 0 auto; overflow-x: auto; }
-  nav a { white-space: nowrap; }
+  nav {
+    display: flex;
+    gap: 1.25rem;
+    padding: 0 1.25rem;
+    border-bottom: 1px solid var(--line);
+    background: var(--surface);
+    overflow-x: auto;
+  }
   nav a {
-    padding: 0.4rem 0.9rem;
-    border-radius: 999px;
+    white-space: nowrap;
+    padding: 0.7rem 0 0.6rem;
     color: var(--muted);
     text-decoration: none;
-    font-weight: 600;
+    font-weight: 550;
+    font-size: 0.92rem;
+    border-bottom: 2px solid transparent;
   }
-  nav a.active { background: var(--card); color: var(--fg); }
+  nav a.active { color: var(--fg); border-bottom-color: var(--fg); }
   /* the demo the room is playing now */
-  nav a.now::after { content: ' ●'; color: var(--hot); }
-  main { max-width: 44rem; margin: 0 auto; padding: 1rem; }
+  nav a.now::after { content: ''; display: inline-block; width: 6px; height: 6px; margin-left: 0.4rem; border-radius: 999px; background: var(--hot); vertical-align: middle; }
+  main { max-width: 56rem; margin: 0 auto; padding: 1.5rem 1.25rem; }
 </style>

@@ -13,13 +13,14 @@ export const DEMOS: Record<Demo, { title: string; icon: string; path: string }> 
 export function demoOf(e: FeedEvent): Demo | null {
   switch (e.type) {
     case 'vault_registered':
+    case 'hot_wallet_created':
       return 'vault'
     case 'contract_registered':
       return e.kind
     case 'pool_updated':
       return 'pool'
     case 'activity':
-      if (e.kind.startsWith('vault_') || e.kind.startsWith('theft_')) return 'vault'
+      if (e.kind.startsWith('vault_') || e.kind.startsWith('theft_') || e.kind === 'wallet_swept') return 'vault'
       if (e.kind.startsWith('inheritance_')) return 'inheritance'
       if (e.kind.startsWith('subscription_')) return 'subscription'
       return 'pool'
@@ -32,6 +33,8 @@ export function describe(e: FeedEvent): { icon: string; text: string; tone?: 'ho
   switch (e.type) {
     case 'participant_joined':
       return { icon: '👋', text: `${e.name} se ha unido` }
+    case 'hot_wallet_created':
+      return { icon: '🔑', text: `${e.owner} ha creado su cartera caliente` }
     case 'demo_changed':
       return { icon: DEMOS[e.demo].icon, text: `Ahora jugamos: ${DEMOS[e.demo].title}` }
     case 'faucet':
@@ -57,6 +60,8 @@ export function describe(e: FeedEvent): { icon: string; text: string; tone?: 'ho
       return { icon: '🏊', text: `La mesa «${e.name}» comparte ahora un solo UTXO de ${sats(e.amount_sat)} entre ${e.members.length}` }
     case 'activity':
       switch (e.kind) {
+        case 'wallet_swept':
+          return { icon: '💸', text: `${e.who} ha vaciado la cartera caliente de ${e.owner} (${sats(e.amount_sat)})`, tone: 'thief' }
         case 'pool_exit':
           return { icon: '🚪', text: `${e.who} ha salido de su pool sin pedir permiso a nadie`, tone: 'hot' }
         case 'inheritance_keep_alive':
