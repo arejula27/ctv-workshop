@@ -93,7 +93,7 @@
 <section class="panel wallet {tone ?? ''}">
   <div class="top">
     <div>
-      <div class="eyebrow">{title}</div>
+      <div class="eyebrow"><span class="dot {tone ?? ''}"></span>{title}</div>
       {#if subtitle}<div class="muted sub">{subtitle}</div>{/if}
     </div>
     <span class="mono addr" title={address}>{short(address, 6)}</span>

@@ -48,6 +48,13 @@ export function newSeed(): string {
 }
 
 export const walletInfo = (seed: string): WalletInfo => wasm.wallet_info(seed)
+export type TxSummary = {
+  txid: string
+  inputs: string[]
+  outputs: { vout: number; value: number; address: string | null }[]
+}
+/** What a raw transaction spends and creates. */
+export const txSummary = (hex: string): TxSummary => wasm.tx_summary(hex)
 export const hotSecret = (seed: string): string => wasm.hot_secret(seed)
 /** Secret of a wallet's main key (signs a vault's hot withdrawal; what a thief gets from a leaked seed). */
 export const walletSecret = (seed: string): string => wasm.wallet_secret(seed)
@@ -112,14 +119,24 @@ export const subscription = {
 
 // ---------- payment pool ----------
 
-export type PoolMember = { label: string; pubkey: string; address: string }
-export type PoolParams = { members: PoolMember[]; share_sat: number; fee_sat: number }
+export type PoolMember = { label: string; pubkey: string; address: string; balance_sat: number }
+export type PoolParams = { members: PoolMember[]; fee_sat: number }
+/** A cooperative update, as the coordinator builds it. */
+export type PoolUpdateSpec = {
+  now: PoolParams
+  next: PoolMember[]
+  outpoint: string
+  utxos: Utxo[]
+  outputs: [string, number][]
+}
+export type PoolSignature = { txid: string; sig: string; input_witnesses: [number, string[]][] }
 
 export const pool = {
   address: (p: PoolParams): string => wasm.pool_address(p),
-  /** Every exit order: prune it before drawing (see treeStatus.prune). */
-  view: (p: PoolParams, funding?: string): ContractView => wasm.pool_view(p, funding ?? null),
-  /** `who` leaves the pool left after `exited`, which sits at `current`. */
-  exit: (p: PoolParams, exited: number[], who: number, current: string, seed: string): SignedTx =>
-    wasm.pool_exit(p, new Uint32Array(exited), who, current, seed),
+  /** The current state's tree: prune it before drawing (see treeStatus.prune). */
+  view: (p: PoolParams, outpoint?: string): ContractView => wasm.pool_view(p, outpoint ?? null),
+  /** Member `who` leaves the current pool (at `current`) with their balance. */
+  exit: (p: PoolParams, who: number, current: string, seed: string): SignedTx => wasm.pool_exit(p, who, current, seed),
+  /** Rebuilds an update and signs it (plus any deposit inputs this wallet owns). */
+  updateSign: (spec: PoolUpdateSpec, seed: string): PoolSignature => wasm.pool_update_sign(spec, seed),
 }

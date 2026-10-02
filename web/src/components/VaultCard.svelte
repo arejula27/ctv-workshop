@@ -5,8 +5,8 @@
   import { chain, isMine, markMine, simDate } from '../lib/store.svelte'
   import { useStatuses } from '../lib/useStatuses.svelte'
   import { blocksLeft as blocksLeftOf, unvaultOutpoint, vaultPhase } from '../lib/vaultPhase'
-  import { blocksToTime, date, sats, simDuration } from '../lib/format'
-  import TreeView from './TreeView.svelte'
+  import { blocksToTime, date, sats, short, simDuration } from '../lib/format'
+  import { txUrl } from '../lib/explorer'
 
   let {
     params,
@@ -36,7 +36,6 @@
   let hotByMe = $derived(isMine(unvault?.spentBy))
   let busy = $state(false)
   let error = $state('')
-  let showTree = $state(false)
   // After an action, keep its buttons off until the chain shows the new phase:
   // pressing twice must not do (or announce) it twice.
   let actedIn = $state<string | null>(null)
@@ -60,19 +59,39 @@
   const start = () => act(isThief ? 'theft_start' : 'vault_start', () => core.start(params, outpoint))
   const toCold = () => act('vault_to_cold', () => core.toCold(params, outpoint))
   const panic = () => act('vault_panic', () => core.panic(params, outpoint))
+  // Where the hot key sends it: the wallet by default, any address if you like.
+  let dest = $state('')
+  $effect(() => {
+    if (!dest && destination) dest = destination
+  })
   const withdrawHot = () =>
-    act(isThief ? 'theft_success' : 'vault_withdraw', () => core.withdrawHot(params, outpoint, destination, secret))
+    act(isThief ? 'theft_success' : 'vault_withdraw', () => core.withdrawHot(params, outpoint, dest.trim(), secret))
 
-  const toneOf = (label: string) =>
-    /caja fuerte|pánico/i.test(label) ? 'cold' : /caliente/i.test(label) ? 'hot' : undefined
   const ready = $derived(blocksLeft != null && blocksLeft <= 0)
+  const ended = $derived(phase === 'cold' || phase === 'panicked' || phase === 'hot')
+
+  // Every step of this vault in the explorer. The CTV script itself shows up in
+  // the input of the transaction that spends each contract (its witness).
+  let links = $derived.by(() => {
+    const out = [{ label: 'Depósito', txid: outpoint.split(':')[0] }]
+    const root = st.map.get(outpoint)
+    if (root?.spentBy) out.push({ label: root.spentLeaf === 0 ? 'Inicio del retiro' : 'A la caja fuerte', txid: root.spentBy })
+    if (unvault?.spentBy)
+      out.push({ label: phase === 'hot' ? (hotByMe ? (isThief ? 'Robo' : 'Retiro') : 'Vaciado') : 'Pánico', txid: unvault.spentBy })
+    return out
+  })
 </script>
 
 <article class="panel card" class:thief={isThief} class:alarm={phase === 'withdrawing'}>
   <header>
     <div>
       <div class="eyebrow">{isThief ? `Vault de ${owner}` : 'Vault'}</div>
-      <div class="value">{sats(params.amount_sat)}</div>
+      {#if ended}
+        <div class="value">Vacío</div>
+        <div class="muted small">Tenía {sats(params.amount_sat)}</div>
+      {:else}
+        <div class="value">{sats(params.amount_sat)}</div>
+      {/if}
     </div>
     <div class="meta">
       <span class="badge">espera {params.delay} bloques · {simDuration(params.delay, chain.simBlock)}</span>
@@ -83,6 +102,19 @@
       {:else}<span class="badge">Confirmando…</span>{/if}
     </div>
   </header>
+
+  <div class="txs">
+    <div class="eyebrow">Transacciones</div>
+    <ol>
+      {#each links as l, i (l.txid)}
+        <li>
+          <span class="step">{i + 1}</span>
+          <span class="what">{l.label}</span>
+          <a class="mono" href={txUrl(l.txid)} target="_blank" rel="noopener" title={l.txid}>{short(l.txid, 8)} ↗</a>
+        </li>
+      {/each}
+    </ol>
+  </div>
 
   {#if phase === 'withdrawing'}
     <div class="timer">
@@ -102,13 +134,18 @@
   {:else}
     <div class="sides">
       <div class="side hot">
-        <div class="eyebrow">Hacia la cartera caliente</div>
+        <div class="eyebrow"><span class="dot hot"></span>Con la llave caliente</div>
         {#if phase === 'locked'}
           <p>{isThief ? 'Inicia el retiro. Luego hay que esperar, y la dueña lo verá.' : `Primero se inicia el retiro y luego hay que esperar ${params.delay} bloques.`}</p>
           <button class="hot" onclick={start} disabled={locked}>Iniciar retiro</button>
         {:else if phase === 'withdrawing'}
-          <p>{isThief ? 'Cuando acabe la espera, llévatelo a tu cartera.' : 'Cuando acabe la espera, puedes sacarlo.'}</p>
-          <button class="hot" onclick={withdrawHot} disabled={locked || !ready}>{isThief ? 'Llevármelo' : 'Retirar a la cartera caliente'}</button>
+          <p>{isThief ? 'Cuando acabe la espera, llévatelo a donde quieras.' : 'Cuando acabe la espera, puedes retirarlo.'}</p>
+          <label class="dest">
+            Destino
+            <input bind:value={dest} placeholder="bcrt1…" autocomplete="off" spellcheck="false" disabled={locked} />
+            <span class="muted hint">{dest.trim() === destination ? (isThief ? 'Tu cartera' : 'Tu cartera caliente') : 'Otra dirección'}</span>
+          </label>
+          <button class="hot" onclick={withdrawHot} disabled={locked || !ready || !dest.trim()}>{isThief ? 'Llevármelo' : 'Retirar'}</button>
         {:else if phase === 'hot'}
           <p><b>{sats(params.amount_sat - 2 * params.fee_sat)}</b> salieron por aquí{hotByMe ? '.' : isThief ? ', pero no a tu cartera.' : ' sin que fueras tú.'}</p>
         {:else}
@@ -116,14 +153,14 @@
         {/if}
       </div>
       <div class="side cold">
-        <div class="eyebrow">Hacia la caja fuerte</div>
+        <div class="eyebrow"><span class="dot cold"></span>Hacia la caja fuerte</div>
         {#if isThief && (phase === 'locked' || phase === 'withdrawing')}
           <p class="muted">Fuera de tu alcance. Si {owner} pulsa el pánico, el dinero acaba aquí.</p>
         {:else if phase === 'locked'}
           <p>Al instante, sin esperas.</p>
           <button class="secondary" onclick={toCold} disabled={locked}>Mandar a la caja fuerte</button>
         {:else if phase === 'withdrawing'}
-          <p><b>¿No has sido tú?</b> Alguien tiene tu llave caliente. El pánico lo manda todo a la caja fuerte y nadie puede impedirlo.</p>
+          <p><b>¿No has sido tú?</b> Alguien tiene tu llave caliente. El botón del pánico lo manda todo a la caja fuerte y nadie puede impedirlo.</p>
           <button class="cold" onclick={panic} disabled={locked}>Botón del pánico</button>
         {:else if phase === 'cold' || phase === 'panicked'}
           <p><b>{sats(params.amount_sat - (phase === 'cold' ? 1 : 2) * params.fee_sat)}</b> a salvo{phase === 'panicked' ? ' gracias al pánico' : ''}.</p>
@@ -136,28 +173,25 @@
 
   {#if error}<p class="error">{error}</p>{/if}
 
-  <footer>
-    <button class="ghost" onclick={() => (showTree = !showTree)}>{showTree ? 'Ocultar' : 'Ver'} transacciones del contrato</button>
-  </footer>
-  {#if showTree}
-    <div class="tree"><TreeView contract={view} statuses={st.map} {toneOf} /></div>
-  {/if}
 </article>
 
 <style>
   .card { display: flex; flex-direction: column; gap: 0.8rem; }
-  .card.alarm { border-color: var(--hot); box-shadow: 0 0 0 3px var(--hot-bg); }
-  .card.thief { border-top: 3px solid var(--thief); }
+  .small { font-size: 0.82rem; }
+  .dest { width: 100%; font-weight: 550; }
+  .dest input { font-family: var(--mono); font-size: 0.8rem; }
+  .hint { font-weight: 400; font-size: 0.78rem; }
   header { display: flex; justify-content: space-between; align-items: flex-start; gap: 0.5rem; flex-wrap: wrap; }
   .value { font-size: 1.3rem; font-weight: 650; font-variant-numeric: tabular-nums; }
   .meta { display: flex; gap: 0.4rem; flex-wrap: wrap; }
+  .txs ol { list-style: none; margin: 0.35rem 0 0; padding: 0; }
+  .txs li { display: grid; grid-template-columns: 1.4rem 1fr auto; gap: 0.5rem; align-items: center; padding: 0.4rem 0; border-top: 1px solid var(--line); font-size: 0.88rem; }
+  .txs .step { width: 1.4rem; height: 1.4rem; border-radius: 999px; background: var(--card); color: var(--muted); display: grid; place-items: center; font-size: 0.72rem; font-weight: 600; }
+  .txs a { text-decoration: none; font-size: 0.8rem; }
   .timer { background: var(--hot-bg); color: var(--fg); border-radius: 8px; padding: 0.6rem 0.8rem; font-size: 0.92rem; }
   .sides { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
   .side { border: 1px solid var(--line); border-radius: 10px; padding: 0.8rem; display: flex; flex-direction: column; gap: 0.5rem; align-items: flex-start; }
-  .side.hot { border-left: 3px solid var(--hot); }
-  .side.cold { border-left: 3px solid var(--cold); }
+
   .side p { margin: 0; font-size: 0.9rem; }
-  footer { display: flex; }
-  .tree { overflow-x: auto; }
   @media (max-width: 40rem) { .sides { grid-template-columns: 1fr; } }
 </style>

@@ -17,12 +17,12 @@
 {#if !vaultGame.role}
   <div class="roles">
     <button class="role panel hot" onclick={() => saveVaultGame({ role: 'owner' })}>
-      <span class="eyebrow">Usuaria</span>
+      <span class="eyebrow"><span class="dot hot"></span>Usuaria</span>
       <b>Protege tu dinero</b>
       <span class="muted">Tienes una cartera en el móvil y guardas tus ahorros en un vault. Si alguien te roba la llave, tendrás tiempo de reaccionar.</span>
     </button>
     <button class="role panel thief" onclick={() => saveVaultGame({ role: 'thief' })}>
-      <span class="eyebrow">Ladrona</span>
+      <span class="eyebrow"><span class="dot thief"></span>Ladrona</span>
       <b>Roba lo que puedas</b>
       <span class="muted">Tienes las semillas filtradas de las carteras calientes de la sala. Vacíalas y ataca sus vaults… si te dejan.</span>
     </button>
@@ -49,8 +49,7 @@
     box-shadow: var(--shadow);
     padding: 1.25rem;
   }
-  .role.hot { border-top: 3px solid var(--hot); }
-  .role.thief { border-top: 3px solid var(--thief); }
+
   .role:hover { border-color: var(--fg); }
   .role b { font-size: 1.15rem; }
   .role .muted { font-size: 0.9rem; }

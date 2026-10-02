@@ -5,6 +5,7 @@
   import { inheritancePhase } from '../lib/contractPhase'
   import { sats } from '../lib/format'
   import Tile from './Tile.svelte'
+  import { txUrl } from '../lib/explorer'
 
   let { owner, params, outpoint }: { owner: string; params: InheritanceParams; outpoint: string } = $props()
 
@@ -15,15 +16,16 @@
 </script>
 
 <Tile
-  title="📜 {owner}"
+  href={txUrl(st.map.get(outpoint)?.spentBy ?? outpoint.split(':')[0])}
+  title={owner}
   subtitle="{sats(params.amount_sat)} → {heirs}"
   tone={ph.phase === 'claimable' || ph.phase === 'distributed' ? 'cold' : ph.phase === 'waiting' ? 'hot' : undefined}
   pulse={ph.phase === 'claimable'}
 >
-  {#if ph.phase === 'loading' || ph.phase === 'funding'}⏳ guardándose…
-  {:else if ph.phase === 'waiting'}💓 se reparte en {ph.blocksLeft} bloques si no da señales
-  {:else if ph.phase === 'claimable'}⏰ ¡plazo cumplido!
-  {:else if ph.phase === 'distributed'}📜 repartida
-  {:else}↩ recuperada
+  {#if ph.phase === 'loading' || ph.phase === 'funding'}<span class="badge">Guardándose…</span>
+  {:else if ph.phase === 'waiting'}<span class="badge hot">Se reparte en {ph.blocksLeft} bloques</span>
+  {:else if ph.phase === 'claimable'}<span class="badge cold">Plazo cumplido</span>
+  {:else if ph.phase === 'distributed'}<span class="badge cold">Repartida</span>
+  {:else}<span class="badge">Recuperada</span>
   {/if}
 </Tile>

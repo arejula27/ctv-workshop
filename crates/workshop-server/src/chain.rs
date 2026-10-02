@@ -38,6 +38,8 @@ pub struct Chain {
     next_block_at_ms: AtomicU64,
     /// Timestamp of block 1: day zero of the simulated calendar.
     sim_epoch_s: AtomicU64,
+    /// Hash of block 1: identifies this chain, so apps notice a reset.
+    chain_id: std::sync::OnceLock<String>,
 }
 
 impl Chain {
@@ -66,6 +68,7 @@ impl Chain {
             miner: watch::channel(miner).0,
             next_block_at_ms: AtomicU64::new(0),
             sim_epoch_s: AtomicU64::new(0),
+            chain_id: std::sync::OnceLock::new(),
         });
 
         let height = chain.height().await?;
@@ -79,6 +82,7 @@ impl Chain {
         let hash: String = chain.node.call("getblockhash", json!([1])).await?;
         let header: serde_json::Value = chain.node.call("getblockheader", json!([hash])).await?;
         chain.sim_epoch_s.store(header["time"].as_u64().unwrap_or_default(), Ordering::Relaxed);
+        let _ = chain.chain_id.set(hash);
         Ok(chain)
     }
 
@@ -120,6 +124,10 @@ impl Chain {
             }
             res => Ok(res?),
         }
+    }
+
+    pub fn chain_id(&self) -> String {
+        self.chain_id.get().cloned().unwrap_or_default()
     }
 
     pub fn sim_epoch_s(&self) -> u64 {

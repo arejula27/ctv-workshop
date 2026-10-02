@@ -25,11 +25,10 @@ Lo que hay que hacer antes de empezar, en orden. Los comandos se lanzan desde la
 
 2. **Vaciar la sala:** ejecuta `infra/scripts/reset.sh`. El tablero y la lista de participantes tienen ahora
    muchas entradas de los tests ("Ana kqnw", "Mesa 3 jog"…) y el reset deja la sala vacía.
-   - Borra la cadena, el índice de esplora y el registro de la sala, y arranca una regtest nueva (el servidor
+   - Borra la cadena, los índices (esplora y mempool) y el registro de la sala, y arranca una regtest nueva (el servidor
      vuelve a minar los 200 bloques iniciales; tarda unos segundos). El calendario simulado empieza de nuevo.
    - ⚠️ Todavía no se ha ejecutado nunca: hazlo la víspera también, para ver que funciona.
-   - Si has probado la app con tu propio navegador, en **Cartera → Detalles técnicos → Salir de esta cartera**
-     (o borra los datos del sitio): lo que guardó apunta a la cadena anterior.
+   - Los navegadores detectan la cadena nueva y olvidan solos la partida anterior (se conserva el nombre).
 
 3. **Comprobar que todo responde:**
    ```bash
@@ -49,8 +48,8 @@ Lo que hay que hacer antes de empezar, en orden. Los comandos se lanzan desde la
    - Docker Desktop publica el puerto 8080 en Windows: la IP es la de Windows en la wifi del evento
      (`ipconfig` en PowerShell → "Dirección IPv4").
    - El firewall de Windows puede bloquear el 8080: pruébalo desde tu móvil antes de que llegue nadie.
-   - Para que el explorador (`:5000`) muestre las transacciones, pon esa dirección en `PUBLIC_URL` en
-     `infra/.env` antes de levantar el stack.
+   - El explorador (mempool) está en `http://<IP>:5000`. Muestra el diagrama de cada transacción y, en las
+     entradas que gastan un contrato, la fila **P2TR tapscript** con el script (`… OP_NOP4` = OP_CHECKTEMPLATEVERIFY).
 
 ## Durante
 

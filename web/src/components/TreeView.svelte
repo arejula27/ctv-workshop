@@ -90,19 +90,22 @@
 <style>
   .contract { display: flex; flex-direction: column; gap: 0.5rem; }
   .box {
-    border: 2px solid var(--line);
+    border: 1px solid var(--line);
     border-radius: 12px;
     padding: 0.6rem 0.8rem;
     background: var(--card);
   }
-  .funded > .box { border-color: var(--fg); }
+  .funded > .box { border-color: var(--muted); }
   .title { font-weight: 600; }
   .amount { font-variant-numeric: tabular-nums; }
   .badge { font-size: 0.8rem; color: var(--muted); }
   .leaves { display: flex; flex-direction: column; gap: 0.75rem; padding-left: 1rem; border-left: 2px solid var(--line); }
-  .leaf { display: flex; flex-direction: column; gap: 0.4rem; padding-left: 0.75rem; border-left: 4px solid var(--line); }
-  .leaf.hot { border-left-color: var(--hot); }
-  .leaf.cold { border-left-color: var(--cold); }
+  .leaf { display: flex; flex-direction: column; gap: 0.4rem; padding-left: 0.75rem; border-left: 1px solid var(--line); }
+  .leaf.hot .leaf-label::before, .leaf.cold .leaf-label::before {
+    content: ''; display: inline-block; width: 7px; height: 7px; border-radius: 999px; margin-right: 0.4rem; vertical-align: middle;
+  }
+  .leaf.hot .leaf-label::before { background: var(--hot); }
+  .leaf.cold .leaf-label::before { background: var(--cold); }
   .leaf.skipped { opacity: 0.35; }
   /* direct child only: nested leaves have their own state */
   .leaf.taken > .edge > .leaf-label::after { content: ' ✓'; }

@@ -1,7 +1,8 @@
 // App state shared by every page. Persisted bits live in localStorage (test coins only).
 import { subscribe, type Demo, type FeedEvent, type MinerSettings } from './events'
-import { joinRoom, registerContract, registerVault, type ContractKind } from './api'
+import { joinRoom, registerContract, registerHotWallet, registerVault, type ContractKind } from './api'
 import {
+  newSeed,
   walletInfo,
   type InheritanceParams,
   type SubscriptionParams,
@@ -61,6 +62,8 @@ export function initWallet() {
         contracts.list.map((c) => registerContract(c.id, c.kind, name, c.params, c.outpoint)),
       ),
     )
+    // The vault game's hot wallet too, so thieves see it even after a server reset.
+    .then(() => vaultGame.hot && registerHotWallet(name, vaultGame.hot.seed))
     .catch(() => {})
 }
 
@@ -112,6 +115,7 @@ export function startChain() {
     (e) => {
       switch (e.type) {
         case 'hello':
+          forgetOldChain(e.status.chain_id)
           chain.height = e.status.height
           chain.miner = e.status.miner
           chain.nextBlockAt =
@@ -136,7 +140,10 @@ export function startChain() {
           chain.demo = e.demo
           break
       }
-      if (e.type !== 'hello' && e.type !== 'block') {
+      // Signature bookkeeping only refreshes the pool, it isn't news for the feed.
+      const quiet = e.type === 'pool_updated' && ['signature', 'failed', 'proposal'].includes(e.change)
+      if (quiet) chain.poolsTick++
+      if (e.type !== 'hello' && e.type !== 'block' && !quiet) {
         chain.feed = [e, ...chain.feed].slice(0, FEED_LEN)
         if (e.type === 'vault_registered') chain.vaultsTick++
         if (e.type === 'contract_registered') chain.contractsTick++
@@ -254,4 +261,53 @@ export const isMine = (txid: string | undefined) => !!txid && mineTxids.list.inc
 export function markMine(txid: string) {
   mineTxids.list = [...mineTxids.list, txid]
   save('ctv.mytxids', mineTxids.list)
+}
+
+// ---------- pool game ----------
+
+/** The pool demo's wallet: its on-chain account and its key inside the pool. */
+export const poolGame = $state<{ seed?: string }>(load<{ seed?: string }>('ctv.poolgame', {}))
+export function savePoolGame(patch: { seed?: string }) {
+  Object.assign(poolGame, patch)
+  save('ctv.poolgame', $state.snapshot(poolGame))
+}
+
+// ---------- chain resets ----------
+
+/** After a reset the server runs a new chain: whatever this browser saved from
+ *  the old one (vaults, contracts, each demo's wallets, the role) points to
+ *  coins that no longer exist. Drop it and keep only the name. */
+function forgetOldChain(chainId: string) {
+  if (!chainId) return
+  let known: string | null = null
+  try {
+    known = localStorage.getItem('ctv.chain')
+  } catch {
+    return
+  }
+  if (known === chainId) return
+  try {
+    localStorage.setItem('ctv.chain', chainId)
+  } catch {
+    // storage unavailable: nothing saved to forget either
+  }
+  // First visit ever: nothing to forget.
+  if (known === null && vaults.list.length === 0 && !vaultGame.hot && !poolGame.seed && contracts.list.length === 0) return
+  vaults.list = []
+  contracts.list = []
+  mineTxids.list = []
+  for (const k of Object.keys(vaultGame) as (keyof VaultGame)[]) delete vaultGame[k]
+  vaultGame.role = null
+  delete poolGame.seed
+  for (const key of ['ctv.vaults', 'ctv.contracts', 'ctv.mytxids', 'ctv.vaultgame', 'ctv.poolgame']) {
+    try {
+      localStorage.removeItem(key)
+    } catch {
+      // ignore
+    }
+  }
+  if (me.id) {
+    // A fresh general wallet too: the old one's coins are gone with the old chain.
+    setIdentity({ name: me.id.name, seed: newSeed() })
+  }
 }

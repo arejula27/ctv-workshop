@@ -6,3 +6,4 @@ web/src/wasm
 web/e2e/shots
 web/e2e/node_modules
 web/e2e/package-lock.json
+web/e2e/.*.mjs

@@ -119,8 +119,7 @@
   .intro { margin-top: 0; }
   .split { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin: 1rem 0; }
   .half { border-radius: 16px; padding: 1rem; display: flex; flex-direction: column; gap: 0.5rem; }
-  .half.hot { background: var(--hot-bg); border: 2px solid var(--hot); }
-  .half.cold { background: var(--cold-bg); border: 2px solid var(--cold); }
+  .half { background: var(--surface); border: 1px solid var(--line); box-shadow: var(--shadow); }
   h2 { margin: 0; }
   .icon { font-size: 2rem; }
   .hint { font-size: 0.85rem; color: var(--muted); margin: 0; }

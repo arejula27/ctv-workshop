@@ -11,7 +11,7 @@ use bitcoin::{
     absolute::LockTime,
     hashes::{Hash, sha256},
     key::Keypair,
-    opcodes::all::{OP_CHECKSIG, OP_CHECKSIGVERIFY, OP_CSV, OP_DROP},
+    opcodes::all::{OP_CHECKSIG, OP_CHECKSIGADD, OP_CHECKSIGVERIFY, OP_CSV, OP_DROP, OP_NUMEQUAL},
     script::Builder,
     secp256k1::Message,
     sighash::{Prevouts, SighashCache},
@@ -44,6 +44,9 @@ pub enum Leaf {
     Ctv { label: String, csv: Option<u16>, signer: Option<XOnlyPublicKey>, next: Template },
     /// `[<csv> CSV DROP] <signer> CHECKSIG`: `signer` spends anywhere.
     Key { label: String, csv: Option<u16>, signer: XOnlyPublicKey },
+    /// `<pk1> CHECKSIG <pk2> CHECKSIGADD … <n> NUMEQUAL`: all `signers` together
+    /// spend anywhere (a pool's cooperative update).
+    Multi { label: String, signers: Vec<XOnlyPublicKey> },
 }
 
 /// A transaction fixed by CTV: version 2, locktime 0, one input.
@@ -83,6 +86,8 @@ pub struct CompiledLeaf {
     pub script: ScriptBuf,
     pub csv: Option<u16>,
     pub signer: Option<XOnlyPublicKey>,
+    /// All of them must sign (multisig leaves only), in script order.
+    pub cosigners: Vec<XOnlyPublicKey>,
     /// The transaction this leaf is locked to; `None` for key leaves.
     pub template: Option<CompiledTemplate>,
 }
@@ -117,6 +122,7 @@ impl Contract {
                         script: ctv_leaf_script(*csv, *signer, template.ctv_hash),
                         csv: *csv,
                         signer: *signer,
+                        cosigners: vec![],
                         template: Some(template),
                     }
                 }
@@ -125,6 +131,15 @@ impl Contract {
                     script: key_leaf_script(*csv, *signer),
                     csv: *csv,
                     signer: Some(*signer),
+                    cosigners: vec![],
+                    template: None,
+                },
+                Leaf::Multi { label, signers } => CompiledLeaf {
+                    label: label.clone(),
+                    script: multi_leaf_script(signers),
+                    csv: None,
+                    signer: None,
+                    cosigners: signers.clone(),
                     template: None,
                 },
             });
@@ -312,6 +327,14 @@ fn ctv_leaf_script(
     b.push_slice(hash.to_byte_array()).push_opcode(OP_CHECKTEMPLATEVERIFY).into_script()
 }
 
+fn multi_leaf_script(signers: &[XOnlyPublicKey]) -> ScriptBuf {
+    let mut b = Builder::new();
+    for (i, pk) in signers.iter().enumerate() {
+        b = b.push_x_only_key(pk).push_opcode(if i == 0 { OP_CHECKSIG } else { OP_CHECKSIGADD });
+    }
+    b.push_int(signers.len() as i64).push_opcode(OP_NUMEQUAL).into_script()
+}
+
 fn key_leaf_script(csv: Option<u16>, signer: XOnlyPublicKey) -> ScriptBuf {
     push_csv(Builder::new(), csv).push_x_only_key(&signer).push_opcode(OP_CHECKSIG).into_script()
 }
@@ -364,7 +387,13 @@ impl CompiledContract {
                 .iter()
                 .map(|leaf| LeafView {
                     label: leaf.label.clone(),
-                    kind: if leaf.template.is_some() { "ctv" } else { "key" },
+                    kind: if leaf.template.is_some() {
+                        "ctv"
+                    } else if leaf.cosigners.is_empty() {
+                        "key"
+                    } else {
+                        "multi"
+                    },
                     csv: leaf.csv,
                     signer: leaf.signer.map(|pk| pk.to_string()),
                     tx: leaf.template.as_ref().map(|t| t.view(network, self.value, outpoint)),
@@ -397,5 +426,72 @@ impl CompiledTemplate {
                 })
                 .collect(),
         }
+    }
+}
+
+// ---------- multisig (cooperative) spends ----------
+
+impl CompiledContract {
+    /// Sighash every cosigner of multisig leaf `index` signs, for input `input` of
+    /// `tx`. `prevouts` are all of `tx`'s inputs, in order.
+    pub fn multi_sighash(
+        &self,
+        index: usize,
+        tx: &Transaction,
+        input: usize,
+        prevouts: &[TxOut],
+    ) -> Result<bitcoin::TapSighash, Error> {
+        let leaf = self.leaf(index)?;
+        SighashCache::new(tx)
+            .taproot_script_spend_signature_hash(
+                input,
+                &Prevouts::All(prevouts),
+                TapLeafHash::from_script(&leaf.script, LeafVersion::TapScript),
+                TapSighashType::Default,
+            )
+            .map_err(|e| Error::Sighash(e.to_string()))
+    }
+
+    /// One cosigner's signature over [`Self::multi_sighash`].
+    pub fn multi_sign(
+        &self,
+        index: usize,
+        tx: &Transaction,
+        input: usize,
+        prevouts: &[TxOut],
+        key: &Keypair,
+    ) -> Result<bitcoin::secp256k1::schnorr::Signature, Error> {
+        let leaf = self.leaf(index)?;
+        if !leaf.cosigners.contains(&key.x_only_public_key().0) {
+            return Err(Error::WrongKey);
+        }
+        let sighash = self.multi_sighash(index, tx, input, prevouts)?;
+        Ok(SECP.sign_schnorr_no_aux_rand(&Message::from_digest(sighash.to_byte_array()), key))
+    }
+
+    /// Puts the cosigners' signatures (any order) into input `input`'s witness.
+    pub fn multi_finalize(
+        &self,
+        index: usize,
+        mut tx: Transaction,
+        input: usize,
+        sigs: &[(XOnlyPublicKey, bitcoin::secp256k1::schnorr::Signature)],
+    ) -> Result<Transaction, Error> {
+        let leaf = self.leaf(index)?;
+        let mut witness = Witness::new();
+        // The first CHECKSIG pops the top of the stack, so the first signer's
+        // signature goes last.
+        for pk in leaf.cosigners.iter().rev() {
+            let sig = sigs.iter().find(|(k, _)| k == pk).ok_or(Error::MissingKey)?.1;
+            witness.push(sig.as_ref());
+        }
+        let control = self
+            .spend_info
+            .control_block(&(leaf.script.clone(), LeafVersion::TapScript))
+            .expect("leaf belongs to this tree");
+        witness.push(leaf.script.as_bytes());
+        witness.push(control.serialize());
+        tx.input[input].witness = witness;
+        Ok(tx)
     }
 }

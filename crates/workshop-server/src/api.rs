@@ -71,6 +71,10 @@ pub fn router(state: Arc<AppState>) -> Router {
         .route("/api/pools", get(pools::list).post(pools::create))
         .route("/api/pools/{id}/join", post(pools::join))
         .route("/api/pools/{id}/start", post(pools::start))
+        .route("/api/pools/{id}/propose", post(pools::propose))
+        .route("/api/pools/{id}/sign", post(pools::sign))
+        .route("/api/pools/{id}/cancel", post(pools::cancel))
+        .route("/api/pools/{id}/exited", post(pools::exited))
         .route("/api/activity", post(room::activity))
         .nest("/api/admin", admin)
         .route("/ws", get(events::ws_handler))
@@ -123,6 +127,8 @@ pub struct Status {
     pub faucet_amount_sat: u64,
     /// Simulated calendar: block `h` happens at `sim_epoch_s + (h - 1) * sim_block_s`.
     pub sim_epoch_s: u64,
+    /// Changes with every reset: apps drop the game they saved for an older chain.
+    pub chain_id: String,
     pub sim_block_s: u64,
     /// The demo the room is playing now.
     pub demo: Demo,
@@ -141,6 +147,7 @@ pub async fn status_snapshot(state: &AppState) -> anyhow::Result<Status> {
         next_block_in_ms: state.chain.next_block_in_ms(),
         faucet_amount_sat: state.config.faucet_amount.to_sat(),
         sim_epoch_s: state.chain.sim_epoch_s(),
+        chain_id: state.chain.chain_id(),
         sim_block_s: state.config.sim_block_s,
         demo,
         explorer_url: state.config.explorer_url.clone(),

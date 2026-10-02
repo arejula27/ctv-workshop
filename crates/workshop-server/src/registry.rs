@@ -69,13 +69,79 @@ pub enum PoolState {
     /// The server is funding it; guards against a double start.
     Funding,
     Funded,
+    /// Everyone has left.
+    Dissolved,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct PoolMemberJson {
     pub label: String,
     pub pubkey: String,
+    /// The member's on-chain account: exits and change go here.
     pub address: String,
+    /// Current balance inside the pool.
+    #[serde(default)]
+    pub balance_sat: u64,
+}
+
+/// A coin a member brings into a deposit.
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+pub struct UtxoJson {
+    pub txid: String,
+    pub vout: u32,
+    pub value: u64,
+    pub address: String,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "snake_case")]
+pub enum PoolOp {
+    /// Pay another member inside the pool.
+    Pay,
+    /// Send from the pool to any on-chain address.
+    Withdraw,
+    /// Bring coins from your on-chain account into the pool.
+    Deposit,
+}
+
+/// An update waiting for everyone's signature.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct PoolProposal {
+    pub op: PoolOp,
+    pub by: String,
+    #[serde(default)]
+    pub to: Option<String>,
+    #[serde(default)]
+    pub address: Option<String>,
+    pub amount_sat: u64,
+    /// The members and balances after the update.
+    pub next: Vec<PoolMemberJson>,
+    #[serde(default)]
+    pub deposit_utxos: Vec<UtxoJson>,
+    /// Outputs after the pool (withdrawal payout, deposit change).
+    #[serde(default)]
+    pub outputs: Vec<(String, u64)>,
+    pub txid: String,
+    /// Signatures so far, by pubkey.
+    #[serde(default)]
+    pub sigs: BTreeMap<String, String>,
+    /// Key-path witnesses of the deposit inputs, by input index.
+    #[serde(default)]
+    pub input_witnesses: BTreeMap<usize, Vec<String>>,
+    pub created_at: u64,
+}
+
+/// One step of the pool's history, for the app and the explorer.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct PoolStep {
+    /// "funded", "pay", "withdraw", "deposit" or "exit".
+    pub kind: String,
+    pub by: String,
+    #[serde(default)]
+    pub to: Option<String>,
+    pub amount_sat: u64,
+    pub txid: String,
+    pub at: u64,
 }
 
 /// A pool table: who sits at it and, once funded, where the shared UTXO is.
@@ -90,6 +156,10 @@ pub struct PoolTable {
     pub state: PoolState,
     pub outpoint: Option<String>,
     pub created_at: u64,
+    #[serde(default)]
+    pub pending: Option<PoolProposal>,
+    #[serde(default)]
+    pub history: Vec<PoolStep>,
 }
 
 /// The demo the whole room is playing right now (they run one after another).
@@ -283,6 +353,8 @@ impl Registry {
             state: PoolState::Open,
             outpoint: None,
             created_at: now(),
+            pending: None,
+            history: vec![],
         };
         data.pools.insert(id, table.clone());
         self.persist(&data);
@@ -317,7 +389,7 @@ impl Registry {
     }
 }
 
-fn now() -> u64 {
+pub fn now() -> u64 {
     SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_millis() as u64
 }
 

@@ -7,26 +7,38 @@
     subtitle,
     tone,
     pulse = false,
+    href,
     children,
-  }: { title: string; subtitle: string; tone?: 'hot' | 'cold' | 'thief'; pulse?: boolean; children: Snippet } =
-    $props()
+  }: {
+    title: string
+    subtitle: string
+    tone?: 'hot' | 'cold' | 'thief'
+    pulse?: boolean
+    /** Explorer link for the tile's current transaction. */
+    href?: string
+    children: Snippet
+  } = $props()
 </script>
 
 <div class="tile {tone ?? ''}" class:pulse>
-  <div class="title">{title}</div>
+  <div class="title">
+    <span><span class="dot {tone ?? ''}"></span>{title}</span>
+    {#if href}<a {href} target="_blank" rel="noopener" title="Ver en el explorador">↗</a>{/if}
+  </div>
   <div class="subtitle">{subtitle}</div>
   <div class="state">{@render children()}</div>
 </div>
 
 <style>
-  .tile { border-radius: 14px; padding: 0.8rem 1rem; background: var(--card); border: 3px solid var(--line); }
-  .title { font-weight: 700; font-size: 1.3rem; }
+  .tile { border-radius: 12px; padding: 0.8rem 1rem; background: var(--surface); border: 1px solid var(--line); box-shadow: var(--shadow); }
+  .title { font-weight: 650; font-size: 1.15rem; display: flex; justify-content: space-between; gap: 0.5rem; }
+  .title a { text-decoration: none; color: var(--muted); font-size: 1rem; }
+  .title a:hover { color: var(--cold); }
   .subtitle { color: var(--muted); font-variant-numeric: tabular-nums; }
-  .state { font-weight: 600; margin-top: 0.3rem; }
-  .hot { border-color: var(--hot); background: var(--hot-bg); }
-  .cold { border-color: var(--cold); background: var(--cold-bg); }
-  .thief { border-color: var(--thief); background: var(--thief-bg); }
-  .pulse { animation: pulse 1.2s ease-in-out infinite; }
-  @keyframes pulse { 50% { transform: scale(1.03); } }
+  .state { margin-top: 0.6rem; }
+
+  /* something is happening: a soft ring, not a jumping card */
+  .pulse { animation: ring 1.6s ease-in-out infinite; }
+  @keyframes ring { 50% { box-shadow: 0 0 0 4px var(--hot-bg), var(--shadow); } }
   @media (prefers-reduced-motion: reduce) { .pulse { animation: none; } }
 </style>

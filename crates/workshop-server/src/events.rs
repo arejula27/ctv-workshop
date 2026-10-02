@@ -71,9 +71,13 @@ pub enum Event {
         /// Member labels, in seat order.
         members: Vec<String>,
         state: crate::registry::PoolState,
-        /// What happened: "created", "joined" or "funded".
+        /// What happened: "created", "joined", "funded", "proposal", "pay",
+        /// "withdraw", "deposit", "exit", "dissolved" or "failed".
         change: String,
         amount_sat: u64,
+        /// Who did it, and to whom (pay).
+        by: Option<String>,
+        to: Option<String>,
     },
     Activity {
         who: String,

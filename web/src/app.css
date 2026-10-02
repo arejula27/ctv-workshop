@@ -99,9 +99,11 @@ code, .mono { font-family: var(--mono); font-size: 0.82em; word-break: break-all
   box-shadow: var(--shadow);
   padding: 1.1rem;
 }
-.panel.hot { border-top: 3px solid var(--hot); }
-.panel.cold { border-top: 3px solid var(--cold); }
-.panel.thief { border-top: 3px solid var(--thief); }
+/* Tone is a small dot before the title, not a colored border */
+.dot { display: inline-block; width: 7px; height: 7px; border-radius: 999px; margin-right: 0.4rem; vertical-align: middle; background: var(--line); }
+.dot.hot { background: var(--hot); }
+.dot.cold { background: var(--cold); }
+.dot.thief { background: var(--thief); }
 .eyebrow { font-size: 0.72rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
 .amount { font-size: 1.9rem; font-weight: 650; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
 .badge {

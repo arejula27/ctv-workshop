@@ -70,7 +70,7 @@
       labelOf={(a) => { const w = wallets.find((w) => w.address === a); return w ? `cartera de ${w.owner}` : undefined }} />
   {:else}
     <section class="panel thief setup">
-      <div class="eyebrow">Tu cartera</div>
+      <div class="eyebrow"><span class="dot thief"></span>Tu cartera</div>
       <h2>Primero, dónde guardar el botín</h2>
       <p class="muted">Una cartera tuya para recibir lo que robes.</p>
       <button onclick={() => saveVaultGame({ thief: { seed: newSeed() } })}>Crear cartera</button>
@@ -78,7 +78,7 @@
   {/if}
 
   <section class="panel thief leaks">
-    <div class="eyebrow">Semillas filtradas</div>
+    <div class="eyebrow"><span class="dot thief"></span>Semillas filtradas</div>
     <h2>Carteras calientes de la sala</h2>
     <p class="muted">Alguien ha filtrado las semillas de todas las carteras calientes. Con ellas puedes vaciar la cartera… y atacar sus vaults.</p>
   </section>

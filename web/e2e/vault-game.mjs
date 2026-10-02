@@ -1,7 +1,8 @@
 // UI test: the vault game as real wallets. Run with infra/scripts/test-ui.sh.
 // Ana and Carla protect their money; Bea is the thief with everyone's leaked hot seeds.
 import { chromium } from 'playwright'
-const BASE = 'http://caddy'
+// Same host and ports as a participant's browser (the explorer reads the API from :8080)
+const BASE = process.env.BASE_URL ?? 'http://localhost:8080'
 const H = { 'Content-Type': 'application/json', Authorization: `Bearer ${process.env.ADMIN_TOKEN}` }
 const shot = (p, name) => p.screenshot({ path: `/work/e2e/shots/${name}.png`, fullPage: true })
 const jump = (blocks = 1) => fetch(`${BASE}/api/admin/jump`, { method: 'POST', headers: H, body: JSON.stringify({ blocks }) })
@@ -66,8 +67,20 @@ try {
   await fund(ana, 'Cartera caliente')
   console.log('✓ wallets created; funded from /faucet with the address from "Recibir"')
 
-  await moveToVault(ana, 500000, 5)
+  // Two vaults back to back, before any block: the second spends the first's unconfirmed change.
+  async function quickVault(sats, blocks) {
+    await wallet(ana, 'Cartera caliente').getByRole('button', { name: 'Mover al vault' }).click()
+    await ana.getByLabel('Cantidad (sats)').fill(String(sats))
+    await ana.getByLabel(/Espera para volver/).fill(String(blocks))
+    await ana.locator('form').getByRole('button', { name: /al vault/ }).click()
+    await ana.locator('.dialog').waitFor({ state: 'detached', timeout: 15000 }) // closed = broadcast OK
+  }
+  await quickVault(500000, 5)
+  await quickVault(100000, 5)
+  await jump(1)
+  await ana.locator('.card .badge', { hasText: 'Protegido' }).nth(1).waitFor({ timeout: 20000 })
   await shot(ana, '1-owner')
+  console.log('✓ two vaults in a row, the second using the first one\'s unconfirmed change')
   console.log('✓ moved 500.000 sats to a vault whose safe box is Carla\'s wallet')
 
   await enter(bea, BEA, /Roba lo que puedas/)
@@ -85,7 +98,7 @@ try {
   if (!/\/tx\/[0-9a-f]{64}$/.test(link ?? '')) throw new Error(`bad explorer link: ${link}`)
   console.log('✓ history entries link to the explorer')
 
-  await victim.locator('.card').getByRole('button', { name: 'Iniciar retiro' }).click()
+  await victim.locator('.card', { hasText: '500.000 sats' }).getByRole('button', { name: 'Iniciar retiro' }).click()
   await jump(1)
   await ana.locator('.card .badge', { hasText: 'Retiro en curso' }).waitFor({ timeout: 20000 })
   const panicBtn = ana.getByRole('button', { name: 'Botón del pánico' })
@@ -97,7 +110,7 @@ try {
   await victim.getByText('a salvo gracias al pánico').waitFor({ timeout: 20000 })
   console.log('✓ Ana panicked: the money went to Carla\'s wallet; Bea sees it failed')
 
-  await screen.locator('.tile', { hasText: ANA }).getByText('salvado con el pánico').waitFor({ timeout: 20000 })
+  await screen.locator('.tile', { hasText: ANA }).getByText('Salvado').waitFor({ timeout: 20000 })
   await screen.getByText(`${BEA} ha vaciado la cartera caliente de ${ANA}`).waitFor()
   const panics = await screen.getByText(`¡${ANA} ha pulsado el pánico!`).count()
   if (panics !== 1) throw new Error(`the panic shows ${panics} times on /screen`)
@@ -117,7 +130,7 @@ try {
   await jump(1)
   await carla.locator('.card .badge', { hasText: 'Vaciado' }).waitFor({ timeout: 20000 })
   await carla.getByText('sin que fueras tú').waitFor()
-  await screen.locator('.tile', { hasText: CARLA }).getByText('¡robado!').waitFor({ timeout: 20000 })
+  await screen.locator('.tile', { hasText: CARLA }).getByText('Robado').waitFor({ timeout: 20000 })
   await shot(carla, '4-robbed')
   console.log('✓ round 2: Carla didn\'t react and Bea took the vault')
 

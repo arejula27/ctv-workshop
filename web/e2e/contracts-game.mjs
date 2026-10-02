@@ -1,6 +1,7 @@
 // UI test: inheritance and subscription with two browsers. Run with infra/scripts/test-ui.sh.
 import { chromium } from 'playwright'
-const BASE = 'http://caddy'
+// Same host and ports as a participant's browser (the explorer reads the API from :8080)
+const BASE = process.env.BASE_URL ?? 'http://localhost:8080'
 const shot = (p, name) => p.screenshot({ path: `/work/e2e/shots/${name}.png`, fullPage: true })
 const mine = async (n = 1) => {
   const r = await fetch(`${BASE}/api/admin/jump`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${process.env.ADMIN_TOKEN}` }, body: JSON.stringify({ blocks: n }) })

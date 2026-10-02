@@ -54,10 +54,28 @@ export function describe(e: FeedEvent): { icon: string; text: string; tone?: 'ho
         ? { icon: '💓', text: `${e.owner} sigue viva: su herencia vuelve a empezar` }
         : { icon: '📜', text: `${e.owner} ha dejado una herencia de ${sats(e.amount_sat)}` }
     case 'pool_updated':
-      if (e.change === 'created') return { icon: '🏊', text: `Nueva mesa de pool: «${e.name}»` }
-      if (e.change === 'joined')
-        return { icon: '🪑', text: `${e.members[e.members.length - 1]} se ha sentado en la mesa «${e.name}»` }
-      return { icon: '🏊', text: `La mesa «${e.name}» comparte ahora un solo UTXO de ${sats(e.amount_sat)} entre ${e.members.length}` }
+      switch (e.change) {
+        case 'created':
+          return { icon: '🏊', text: `Nueva mesa de pool: «${e.name}»` }
+        case 'joined':
+          return { icon: '🪑', text: `${e.by} se ha sentado en la mesa «${e.name}»` }
+        case 'funded':
+          return { icon: '🏊', text: `La mesa «${e.name}» comparte ahora un solo UTXO de ${sats(e.amount_sat)} entre ${e.members.length}` }
+        case 'pay':
+          return { icon: '⚡', text: `${e.by} ha pagado ${sats(e.amount_sat)} a ${e.to} dentro del pool «${e.name}»`, tone: 'cold' }
+        case 'withdraw':
+          return { icon: '↗', text: `${e.by} ha enviado ${sats(e.amount_sat)} desde el pool «${e.name}» a una dirección on-chain` }
+        case 'deposit':
+          return { icon: '↘', text: `${e.by} ha metido ${sats(e.amount_sat)} en el pool «${e.name}»` }
+        case 'exit':
+          return { icon: '🚪', text: `${e.by} ha salido del pool «${e.name}» con ${sats(e.amount_sat)}, sin pedir permiso`, tone: 'hot' }
+        case 'dissolved':
+          return { icon: '🎉', text: `El pool «${e.name}» se ha disuelto: cada cual con su parte` }
+        case 'proposal':
+          return { icon: '✍', text: `${e.by} propone un movimiento en el pool «${e.name}»: firmando…` }
+        default:
+          return { icon: '·', text: `Pool «${e.name}»` }
+      }
     case 'activity':
       switch (e.kind) {
         case 'wallet_swept':

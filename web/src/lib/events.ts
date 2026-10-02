@@ -15,6 +15,8 @@ export type Status = {
   sim_block_s: number
   demo: Demo
   explorer_url: string
+  /** Changes with every reset of the chain. */
+  chain_id: string
 }
 
 export type FeedEvent =
@@ -38,9 +40,11 @@ export type FeedEvent =
       id: string
       name: string
       members: string[]
-      state: 'open' | 'funding' | 'funded'
-      change: 'created' | 'joined' | 'funded'
+      state: 'open' | 'funding' | 'funded' | 'dissolved'
+      change: 'created' | 'joined' | 'funded' | 'proposal' | 'signature' | 'pay' | 'withdraw' | 'deposit' | 'exit' | 'dissolved' | 'failed'
       amount_sat: number
+      by: string | null
+      to: string | null
     }
   | {
       type: 'activity'

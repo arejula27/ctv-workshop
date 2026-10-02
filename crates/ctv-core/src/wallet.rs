@@ -158,6 +158,37 @@ impl Wallet {
         self.sign(tx, &ours)
     }
 
+    /// Key-path signs only `inputs` of a transaction others also sign (e.g. a
+    /// deposit into a pool). `prevouts` are all of `tx`'s inputs, in order.
+    pub fn sign_inputs(
+        &self,
+        tx: &Transaction,
+        prevouts: &[TxOut],
+        inputs: &[usize],
+    ) -> Result<Vec<Witness>, Error> {
+        let mut cache = SighashCache::new(tx);
+        inputs
+            .iter()
+            .map(|&i| {
+                let spk = &prevouts.get(i).ok_or(Error::Leaf(i))?.script_pubkey;
+                let role = self.role_of(spk).ok_or(Error::WrongKey)?;
+                let tweaked = self.keypair(role).tap_tweak(&SECP, None).to_keypair();
+                let sighash = cache
+                    .taproot_key_spend_signature_hash(
+                        i,
+                        &Prevouts::All(prevouts),
+                        TapSighashType::Default,
+                    )
+                    .map_err(|e| Error::Sighash(e.to_string()))?;
+                let sig = SECP.sign_schnorr_no_aux_rand(
+                    &Message::from_digest(sighash.to_byte_array()),
+                    &tweaked,
+                );
+                Ok(Witness::from_slice(&[sig.as_ref()]))
+            })
+            .collect()
+    }
+
     /// Key-path signs every input; `prevouts` in input order.
     fn sign(&self, mut tx: Transaction, prevouts: &[Utxo]) -> Result<Transaction, Error> {
         let txouts: Vec<TxOut> = prevouts

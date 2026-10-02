@@ -379,9 +379,34 @@ Atribución en `vendor-notes/` y en la cabecera de cada archivo copiado.
 - Tests: `vault-game.mjs` reescrito (3 navegadores + proyector, dos rondas); `contracts-game.mjs` pausa el reloj
   automático mientras cuenta bloques.
 
-### Siguiente: payment pool como wallet (pendiente de decidir el diseño)
-- Cartera con dos cuentas, **on-chain** e **instantánea** (dentro del pool), ambas con enviar y recibir; ver evolucionar
-  el pool en esplora; salir con el saldo actual, no el inicial.
+### Payment pool como wallet (2026-10-02, sin commit todavía)
+- Decisión: exit **unilateral** (CTV) + cambios de reparto **cooperativos** (firma de todos, apps online que firman
+  solas). Pagar dentro del pool sin permiso necesitaría introspección parcial (CAT+CSFS, CCV, TLUV); ni CSFS ni
+  TEMPLATEHASH+CSFS lo dan (este último daría actualizaciones off-chain estilo LN-Symmetry, pero con ventana de disputa).
+- `pool.rs`: saldos por miembro; cada estado = hoja cooperativa `n-of-n` (CHECKSIG/CHECKSIGADD/NUMEQUAL, nueva
+  `Leaf::Multi` en `tree.rs`) + salidas CTV con el saldo **actual**. `update_tx` / `sign_update` / `verify_update` /
+  `finalize_update`; `Wallet::sign_inputs` para las entradas de un depósito.
+- Regtest: pagar dentro → sacar fuera → salir con el saldo nuevo; depósito desde una cartera con cambio; salidas en
+  cualquier orden; salida manipulada rechazada.
+- Coordinador (`pools.rs`): `propose` (pay / withdraw / deposit) → cada app **reconstruye la tx y solo firma si coincide
+  y no le quita saldo** → `sign` verifica cada firma y, con todas, ensambla y publica. `exited` registra salidas
+  unilaterales tras comprobar que el txid es esa salida del estado actual. Historial de estados con txid.
+- Web `/pool`: cartera con **cuenta on-chain** (Recibir / Enviar / Meter en el pool) y **cuenta instantánea**
+  (Recibir / Enviar a un miembro o a una dirección / Salir del pool), reparto actual, "firmas 2/3", estados del pool
+  con enlace al explorador. `/screen`: saldos por mesa, movimientos y "firmando…".
+
+### Ajustes tras probar vault y pool (2026-10-02, sin commit)
+- **Explorador → mempool.space** (`mempool/frontend` + `backend` + MariaDB, fijados por digest) en `:5000`: diagrama
+  "Flow" y tapscript decodificado (`OP_PUSHBYTES_32 <hash> OP_NOP4` = CTV) en la entrada que gasta un contrato.
+  Su backend lee de nuestro electrs (protocolo electrum) y bitcoind; ya no hace falta `PUBLIC_URL` ni CORS.
+  `reset.sh` borra también su base de datos.
+- Tras un reset, cada navegador detecta la cadena nueva (`chain_id` = hash del bloque 1) y olvida su partida guardada
+  (conserva el nombre). La cartera caliente se vuelve a publicar al cargar.
+- Vault: enlaces al explorador por paso (depósito / inicio del retiro / pánico o retiro), "Vacío · Tenía X" al
+  terminar, retiro con la llave caliente **a cualquier dirección** (por defecto la cartera), sin el árbol del contrato.
+- Estilo: sin bordes de color; el tono es un punto junto al título.
+- Tests UI con red del host (como el navegador de un participante); el del pool abre un enlace del explorador.
+- Pendiente: quitar la pestaña "Cartera" (dar cartera propia a herencia y suscripción) y pasar toda la batería antes del commit.
 
 ### Notas de entorno
 - En este Docker hay otros stacks regtest (btcpay, arkd, mempool…) usando 18443, 3000, 50001… → nuestro RPC de depuración está en 18543.

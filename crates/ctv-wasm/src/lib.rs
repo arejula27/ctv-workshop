@@ -360,17 +360,16 @@ struct JsPoolMember {
     label: String,
     pubkey: String,
     address: String,
+    balance_sat: u64,
 }
 
 #[derive(Clone, Serialize, Deserialize)]
 struct JsPoolParams {
     members: Vec<JsPoolMember>,
-    share_sat: u64,
     fee_sat: u64,
 }
 
-fn pool(params: JsValue) -> Result<Pool, JsError> {
-    let p: JsPoolParams = from_js(params)?;
+fn pool_from(p: &JsPoolParams) -> Result<Pool, JsError> {
     let members = p
         .members
         .iter()
@@ -379,45 +378,148 @@ fn pool(params: JsValue) -> Result<Pool, JsError> {
                 label: m.label.clone(),
                 pubkey: xonly(&m.pubkey)?,
                 payout: address(&m.address)?,
+                balance: Amount::from_sat(m.balance_sat),
             })
         })
         .collect::<Result<_, JsError>>()?;
-    Pool::new(PoolParams {
-        members,
-        share: Amount::from_sat(p.share_sat),
-        fee: Amount::from_sat(p.fee_sat),
-    })
-    .map_err(err)
+    Pool::new(PoolParams { members, fee: Amount::from_sat(p.fee_sat) }).map_err(err)
 }
 
 #[wasm_bindgen]
 pub fn pool_address(params: JsValue) -> Result<String, JsError> {
-    Ok(pool(params)?.address(NETWORK).to_string())
+    Ok(pool_from(&from_js(params)?)?.address(NETWORK).to_string())
 }
 
-/// The whole tree (every exit order). Big for 6 members: the UI prunes it.
+/// The current state's tree (every exit order): the UI prunes it.
 #[wasm_bindgen]
-pub fn pool_view(params: JsValue, funding: Option<String>) -> JsResult {
-    let p = pool(params)?;
-    let op = funding.as_deref().map(outpoint).transpose()?;
+pub fn pool_view(params: JsValue, outpoint_str: Option<String>) -> JsResult {
+    let p = pool_from(&from_js(params)?)?;
+    let op = outpoint_str.as_deref().map(outpoint).transpose()?;
     to_js(&p.contract.view(NETWORK, op))
 }
 
-/// `who` (member index) leaves the pool left after `exited`, sitting at `current`.
+/// Member `who` leaves the current pool (at `current`) with their balance.
 #[wasm_bindgen]
-pub fn pool_exit(
-    params: JsValue,
-    exited: Vec<u32>,
-    who: u32,
-    current: &str,
-    seed_hex: &str,
-) -> JsResult {
-    let p = pool(params)?;
-    let exited: Vec<usize> = exited.into_iter().map(|i| i as usize).collect();
+pub fn pool_exit(params: JsValue, who: u32, current: &str, seed_hex: &str) -> JsResult {
+    let p = pool_from(&from_js(params)?)?;
     let tx = p
-        .exit(&exited, who as usize, outpoint(current)?, &wallet(seed_hex)?.keypair(Role::Main))
+        .exit(&[], who as usize, outpoint(current)?, &wallet(seed_hex)?.keypair(Role::Main))
         .map_err(err)?;
     signed(tx)
+}
+
+/// A cooperative update, exactly as the coordinator builds it
+/// (crates/workshop-server/src/pools.rs `build_update`).
+#[derive(Deserialize)]
+struct JsPoolUpdate {
+    now: JsPoolParams,
+    next: Vec<JsPoolMember>,
+    outpoint: String,
+    #[serde(default)]
+    utxos: Vec<JsUtxo>,
+    #[serde(default)]
+    outputs: Vec<(String, u64)>,
+}
+
+fn pool_update_tx(
+    spec: &JsPoolUpdate,
+) -> Result<(Pool, Transaction, Vec<bitcoin::TxOut>), JsError> {
+    let now = pool_from(&spec.now)?;
+    let next = pool_from(&JsPoolParams { members: spec.next.clone(), fee_sat: spec.now.fee_sat })?;
+    let coins = spec
+        .utxos
+        .iter()
+        .map(|u| {
+            Ok(Utxo {
+                outpoint: OutPoint { txid: txid(&u.txid)?, vout: u.vout },
+                value: Amount::from_sat(u.value),
+                script_pubkey: address(&u.address)?,
+            })
+        })
+        .collect::<Result<Vec<_>, JsError>>()?;
+    let outputs = spec
+        .outputs
+        .iter()
+        .map(|(a, v)| {
+            Ok(bitcoin::TxOut { value: Amount::from_sat(*v), script_pubkey: address(a)? })
+        })
+        .collect::<Result<Vec<_>, JsError>>()?;
+    let tx = now.update_tx(outpoint(&spec.outpoint)?, &next, &coins, outputs).map_err(err)?;
+    let prevouts = now.update_prevouts(&coins);
+    Ok((now, tx, prevouts))
+}
+
+#[derive(Serialize)]
+struct PoolSignature {
+    txid: String,
+    sig: String,
+    /// Deposit inputs this wallet owns: (input index, witness items).
+    input_witnesses: Vec<(usize, Vec<String>)>,
+}
+
+/// Rebuilds the update, signs it with this wallet's pool key, and signs any
+/// deposit inputs the wallet owns. The caller compares `txid` with the proposal.
+#[wasm_bindgen]
+pub fn pool_update_sign(spec: JsValue, seed_hex: &str) -> JsResult {
+    use bitcoin::hex::DisplayHex;
+    let spec: JsPoolUpdate = from_js(spec)?;
+    let (pool, tx, prevouts) = pool_update_tx(&spec)?;
+    let w = wallet(seed_hex)?;
+    let sig = pool.sign_update(&tx, &prevouts, &w.keypair(Role::Main)).map_err(err)?;
+    let mine: Vec<usize> = (1..tx.input.len())
+        .filter(|&i| prevouts[i].script_pubkey == w.script_pubkey(Role::Main))
+        .collect();
+    let witnesses = w.sign_inputs(&tx, &prevouts, &mine).map_err(err)?;
+    to_js(&PoolSignature {
+        txid: tx.compute_txid().to_string(),
+        sig: sig.as_ref().to_lower_hex_string(),
+        input_witnesses: mine
+            .into_iter()
+            .zip(witnesses)
+            .map(|(i, w)| (i, w.iter().map(|item| item.to_lower_hex_string()).collect()))
+            .collect(),
+    })
+}
+
+// ---------- transactions ----------
+
+#[derive(Serialize)]
+struct TxSummary {
+    txid: String,
+    /// Outpoints it spends.
+    inputs: Vec<String>,
+    /// Outputs it creates, with their address when it has one.
+    outputs: Vec<TxSummaryOutput>,
+}
+
+#[derive(Serialize)]
+struct TxSummaryOutput {
+    vout: u32,
+    value: u64,
+    address: Option<String>,
+}
+
+/// What a raw transaction spends and creates: lets the app use its own
+/// unconfirmed change before the indexer catches up.
+#[wasm_bindgen]
+pub fn tx_summary(hex: &str) -> JsResult {
+    let tx: Transaction = bitcoin::consensus::encode::deserialize_hex(hex).map_err(err)?;
+    to_js(&TxSummary {
+        txid: tx.compute_txid().to_string(),
+        inputs: tx.input.iter().map(|i| i.previous_output.to_string()).collect(),
+        outputs: tx
+            .output
+            .iter()
+            .enumerate()
+            .map(|(vout, o)| TxSummaryOutput {
+                vout: vout as u32,
+                value: o.value.to_sat(),
+                address: Address::from_script(&o.script_pubkey, NETWORK)
+                    .ok()
+                    .map(|a| a.to_string()),
+            })
+            .collect(),
+    })
 }
 
 // ---------- helpers ----------

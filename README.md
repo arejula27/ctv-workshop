@@ -23,7 +23,7 @@ ADMIN_TOKEN=... infra/scripts/smoke.sh             # comprobación end-to-end
 | http://localhost:8080 | Webapp |
 | http://localhost:8080/api/status | Estado de la cadena |
 | http://localhost:8080/esplora/blocks/tip/height | API Esplora |
-| http://localhost:5000 | Explorador (para proyectar) |
+| http://localhost:5000 | Explorador mempool (diagrama de cada tx y tapscripts decodificados) |
 
 Reiniciar la cadena desde cero: `infra/scripts/reset.sh`.
 

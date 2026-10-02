@@ -1,5 +1,5 @@
 // workshop-server API.
-import type { InheritanceParams, PoolMember, SubscriptionParams, VaultParams } from './core'
+import type { InheritanceParams, PoolMember, PoolSignature, SubscriptionParams, Utxo, VaultParams } from './core'
 import type { Demo, MinerSettings } from './events'
 
 async function call<T>(method: string, path: string, body?: unknown, token?: string): Promise<T> {
@@ -70,6 +70,23 @@ export const listHotWallets = () => call<HotWallet[]>('GET', '/api/wallets')
 
 // ---------- pool tables ----------
 
+export type PoolProposal = {
+  op: 'pay' | 'withdraw' | 'deposit'
+  by: string
+  to: string | null
+  address: string | null
+  amount_sat: number
+  next: PoolMember[]
+  deposit_utxos: Utxo[]
+  outputs: [string, number][]
+  txid: string
+  sigs: Record<string, string>
+  input_witnesses: Record<string, string[]>
+  created_at: number
+}
+
+export type PoolStep = { kind: string; by: string; to: string | null; amount_sat: number; txid: string; at: number }
+
 export type PoolTable = {
   id: string
   name: string
@@ -77,15 +94,27 @@ export type PoolTable = {
   members: PoolMember[]
   share_sat: number
   fee_sat: number
-  state: 'open' | 'funding' | 'funded'
+  state: 'open' | 'funding' | 'funded' | 'dissolved'
   outpoint: string | null
   created_at: number
+  pending: PoolProposal | null
+  history: PoolStep[]
 }
 
 export const listPools = () => call<PoolTable[]>('GET', '/api/pools')
 export const createPool = (name: string, host: string) => call<PoolTable>('POST', '/api/pools', { name, host })
-export const joinPool = (id: string, member: PoolMember) => call<PoolTable>('POST', `/api/pools/${id}/join`, member)
+export const joinPool = (id: string, m: { label: string; pubkey: string; address: string }) =>
+  call<PoolTable>('POST', `/api/pools/${id}/join`, m)
 export const startPool = (id: string) => call<PoolTable>('POST', `/api/pools/${id}/start`)
+export const proposePool = (
+  id: string,
+  p: { by: string; op: PoolProposal['op']; amount_sat: number; to?: string; address?: string; utxos?: Utxo[] },
+) => call<PoolTable>('POST', `/api/pools/${id}/propose`, p)
+export const signPool = (id: string, pubkey: string, s: PoolSignature) =>
+  call<PoolTable>('POST', `/api/pools/${id}/sign`, { pubkey, ...s })
+export const cancelPool = (id: string) => call('POST', `/api/pools/${id}/cancel`)
+export const reportPoolExit = (id: string, pubkey: string, txid: string) =>
+  call<PoolTable>('POST', `/api/pools/${id}/exited`, { pubkey, txid })
 
 // ---------- admin ----------
 

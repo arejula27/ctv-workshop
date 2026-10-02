@@ -107,7 +107,7 @@
     </WalletPanel>
   {:else}
     <section class="panel hot setup">
-      <div class="eyebrow">Cartera caliente</div>
+      <div class="eyebrow"><span class="dot hot"></span>Cartera caliente</div>
       <h2>Tu cartera del día a día</h2>
       <p class="muted">La que llevas en el móvil. Cómoda, pero si te la roban, se llevan su llave.</p>
       <button onclick={createHot}>Crear cartera</button>
@@ -118,7 +118,7 @@
     <WalletPanel title="Caja fuerte" subtitle="La llave está en un papel, guardada en casa." seed={safe.seed} tone="cold" {labelOf} />
   {:else if safe?.kind === 'friend'}
     <section class="panel cold">
-      <div class="eyebrow">Caja fuerte</div>
+      <div class="eyebrow"><span class="dot cold"></span>Caja fuerte</div>
       <h2>La cartera de {safe.owner}</h2>
       <p class="muted">Una persona de confianza. Si pulsas el pánico, el dinero irá a su cartera.</p>
       <span class="mono addr">{short(safe.address, 10)}</span>
@@ -129,7 +129,7 @@
     </section>
   {:else}
     <section class="panel cold setup">
-      <div class="eyebrow">Caja fuerte</div>
+      <div class="eyebrow"><span class="dot cold"></span>Caja fuerte</div>
       <h2>¿A dónde va el dinero en una emergencia?</h2>
       <p class="muted">Una llave que casi nunca se usa: en papel, en casa, o en manos de alguien de confianza.</p>
       <label>

@@ -5,6 +5,7 @@
   import { subscriptionState } from '../lib/contractPhase'
   import { sats } from '../lib/format'
   import Tile from './Tile.svelte'
+  import { txUrl } from '../lib/explorer'
 
   let { owner, receiver, params, outpoint }: { owner: string; receiver: string; params: SubscriptionParams; outpoint: string } =
     $props()
@@ -20,14 +21,19 @@
 </script>
 
 <Tile
-  title="📆 {owner} → {receiver}"
+  href={txUrl(outpoint.split(':')[0])}
+  title="{owner} → {receiver}"
   subtitle="{sats(params.payment_sat)} cada {params.every} bloques"
   tone={s.phase === 'cancelled' ? 'hot' : s.phase === 'done' ? 'cold' : undefined}
 >
-  <div>{dots}</div>
-  {#if s.phase === 'loading' || s.phase === 'funding'}⏳ reservando…
-  {:else if s.phase === 'active'}{s.pending ? '💸 pago en camino' : s.blocksLeft != null && s.blocksLeft > 0 ? `próximo pago en ${s.blocksLeft}` : '⏰ pago listo para cobrar'}
-  {:else if s.phase === 'cancelled'}✋ cancelada
-  {:else}✅ completada
+  <div class="mono dots">{dots}</div>
+  {#if s.phase === 'loading' || s.phase === 'funding'}<span class="badge">Reservando…</span>
+  {:else if s.phase === 'active'}<span class="badge {s.pending || (s.blocksLeft ?? 1) <= 0 ? 'cold' : ''}">{s.pending ? 'Pago en camino' : s.blocksLeft != null && s.blocksLeft > 0 ? `Próximo pago en ${s.blocksLeft}` : 'Pago listo'}</span>
+  {:else if s.phase === 'cancelled'}<span class="badge hot">Cancelada</span>
+  {:else}<span class="badge ok">Completada</span>
   {/if}
 </Tile>
+
+<style>
+  .dots { margin-bottom: 0.4rem; color: var(--muted); }
+</style>
