@@ -22,7 +22,7 @@ use serde::Serialize;
 
 use crate::{
     Error,
-    ctv::{OP_CHECKTEMPLATEVERIFY, template_hash},
+    ctv::{push_template_check, template_hash},
     taproot::{self, SECP},
 };
 
@@ -39,7 +39,7 @@ pub struct Contract {
 
 #[derive(Clone, Debug)]
 pub enum Leaf {
-    /// `[<csv> CSV DROP] [<signer> CHECKSIGVERIFY] <H(next)> CTV`: the coins can only
+    /// `[<csv> CSV DROP] [<signer> CHECKSIGVERIFY] TEMPLATEHASH <H(next)> EQUAL`: the coins can only
     /// move into `next`, optionally after `csv` blocks and/or with `signer`'s signature.
     Ctv { label: String, csv: Option<u16>, signer: Option<XOnlyPublicKey>, next: Template },
     /// `[<csv> CSV DROP] <signer> CHECKSIG`: `signer` spends anywhere.
@@ -323,8 +323,8 @@ fn ctv_leaf_script(
     if let Some(pk) = signer {
         b = b.push_x_only_key(&pk).push_opcode(OP_CHECKSIGVERIFY);
     }
-    // CTV leaves the hash on the stack: a single truthy element, as tapscript requires.
-    b.push_slice(hash.to_byte_array()).push_opcode(OP_CHECKTEMPLATEVERIFY).into_script()
+    // EQUAL leaves 1 on a match: a single truthy element, as tapscript requires.
+    push_template_check(b, hash).into_script()
 }
 
 fn multi_leaf_script(signers: &[XOnlyPublicKey]) -> ScriptBuf {
